@@ -408,6 +408,54 @@ long O3_CPU::dispatch_instruction()
 {
   champsim::bandwidth available_dispatch_bandwidth{DISPATCH_WIDTH};
 
+  //@Minchan: Check Stall and Update stats
+  if (available_dispatch_bandwidth.has_remaining() && !std::empty(DISPATCH_BUFFER) && DISPATCH_BUFFER.front().ready_time <= current_time){
+    StallType stall_type = StallType::NUM_STALL_TYPE;
+    // 1. ROB Stall
+    if (std::size(ROB) >= ROB_SIZE)
+      stall_type = StallType::ReOrderBuffer;
+    // 2. LQ Stall
+    else if (((std::size_t)std::count_if(std::begin(LQ), std::end(LQ), [](const auto& lq_entry) { return !lq_entry.has_value(); })
+    < std::size(DISPATCH_BUFFER.front().source_memory)))
+      stall_type = StallType::LoadQueue;
+    // 3. SQ Stall
+    else if ((std::size(DISPATCH_BUFFER.front().destination_memory) + std::size(SQ)) > SQ_SIZE)
+      stall_type = StallType::StoreQueue;
+
+    if(stall_type != StallType::NUM_STALL_TYPE){
+      sim_stats.stall_cycles[stall_type]++;
+    }
+    
+    //@Minchan: We need to handle rob stall due to dtlb miss
+    if(stall_type == StallType::ReOrderBuffer){
+      ROBStallType rob_stall_type;
+      if(ROB.front().stlb_miss) {
+        if(!ROB.front().translated){
+          sim_stats.rob_stall_cycles[ROBStallType::ADDR_TRANS]++;
+          rob_stall_type = ADDR_TRANS;
+        }
+        else{
+          rob_stall_type = REPLAY_LOAD;
+          sim_stats.rob_stall_cycles[ROBStallType::REPLAY_LOAD]++;
+        }
+      } else {
+        rob_stall_type = NON_REPLAY_LOAD;
+        sim_stats.rob_stall_cycles[ROBStallType::NON_REPLAY_LOAD]++;
+      }
+
+      //@Minchan: count rob stall instances
+      if(prev_rob_stall_cause_id != ROB.front().instr_id || prev_rob_stall_cause != rob_stall_type){
+        sim_stats.rob_stall_counts[rob_stall_type]++;
+      }
+
+      prev_rob_stall_cause_id = ROB.front().instr_id;
+      prev_rob_stall_cause = rob_stall_type;
+
+    }
+    
+      
+  }
+
   // dispatch DISPATCH_WIDTH instructions into the ROB
   while (available_dispatch_bandwidth.has_remaining() && !std::empty(DISPATCH_BUFFER) && DISPATCH_BUFFER.front().ready_time <= current_time
          && std::size(ROB) != ROB_SIZE
@@ -512,7 +560,8 @@ void O3_CPU::do_memory_scheduling(ooo_model_instr& instr)
   for (auto& smem : instr.source_memory) {
     auto q_entry = std::find_if_not(std::begin(LQ), std::end(LQ), [](const auto& lq_entry) { return lq_entry.has_value(); });
     assert(q_entry != std::end(LQ));
-    q_entry->emplace(smem, instr.instr_id, instr.ip, instr.asid); // add it to the load queue
+    //@Minchan
+    q_entry->emplace(&instr, smem, instr.instr_id, instr.ip, instr.asid); // add it to the load queue
 
     // Check for forwarding
     auto sq_it = std::max_element(std::begin(SQ), std::end(SQ), [smem](const auto& lhs, const auto& rhs) {
@@ -536,7 +585,8 @@ void O3_CPU::do_memory_scheduling(ooo_model_instr& instr)
 
   // store
   for (auto& dmem : instr.destination_memory) {
-    SQ.emplace_back(dmem, instr.instr_id, instr.ip, instr.asid); // add it to the store queue
+    //@Minchan
+    SQ.emplace_back(nullptr, dmem, instr.instr_id, instr.ip, instr.asid); // add it to the store queue
   }
 
   if constexpr (champsim::debug_print) {
@@ -608,6 +658,8 @@ bool O3_CPU::do_complete_store(const LSQ_ENTRY& sq_entry)
   data_packet.v_address = sq_entry.virtual_address;
   data_packet.instr_id = sq_entry.instr_id;
   data_packet.ip = sq_entry.ip;
+  //@Minchan: propagate ooo_model_instr from LSQ_Entry to request_type data type
+  data_packet.instr = sq_entry.instr;
 
   if constexpr (champsim::debug_print) {
     fmt::print("[SQ] {} instr_id: {} vaddr: {}\n", __func__, data_packet.instr_id, data_packet.v_address);
@@ -622,6 +674,8 @@ bool O3_CPU::execute_load(const LSQ_ENTRY& lq_entry)
   data_packet.v_address = lq_entry.virtual_address;
   data_packet.instr_id = lq_entry.instr_id;
   data_packet.ip = lq_entry.ip;
+  //@Minchan: propagate ooo_model_instr from LSQ_Entry to request_type data type
+  data_packet.instr = lq_entry.instr;
 
   if constexpr (champsim::debug_print) {
     fmt::print("[LQ] {} instr_id: {} vaddr: {}\n", __func__, data_packet.instr_id, data_packet.v_address);
@@ -801,9 +855,9 @@ void O3_CPU::print_deadlock()
   champsim::range_print_deadlock(SQ, "cpu" + std::to_string(cpu) + "_SQ", sq_fmt, sq_pack);
 }
 // LCOV_EXCL_STOP
-
-LSQ_ENTRY::LSQ_ENTRY(champsim::address addr, champsim::program_ordered<LSQ_ENTRY>::id_type id, champsim::address local_ip, std::array<uint8_t, 2> local_asid)
-    : champsim::program_ordered<LSQ_ENTRY>{id}, virtual_address(addr), ip(local_ip), asid(local_asid)
+//@Minchan
+LSQ_ENTRY::LSQ_ENTRY(ooo_model_instr* rob_entry, champsim::address addr, champsim::program_ordered<LSQ_ENTRY>::id_type id, champsim::address local_ip, std::array<uint8_t, 2> local_asid)
+    : champsim::program_ordered<LSQ_ENTRY>{id}, virtual_address(addr), ip(local_ip), asid(local_asid), instr{rob_entry}
 {
 }
 

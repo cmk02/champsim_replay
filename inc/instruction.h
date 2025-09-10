@@ -47,6 +47,9 @@ using PHYSICAL_REGISTER_ID = int16_t; // signed to use -1 to indicate no physica
 using namespace std::literals::string_view_literals;
 inline constexpr std::array branch_type_names{"BRANCH_DIRECT_JUMP"sv, "BRANCH_INDIRECT"sv,      "BRANCH_CONDITIONAL"sv,
                                               "BRANCH_DIRECT_CALL"sv, "BRANCH_INDIRECT_CALL"sv, "BRANCH_RETURN"sv};
+inline constexpr std::array stall_type_names{"ROB_STALL"sv, "LQ_STALL"sv, "SQ_STALL"sv};
+
+inline constexpr std::array rob_stall_type_names{"ADDR_TRANS"sv, "REPLAY_LOAD"sv, "NON_REPLAY_LOAD"sv};
 
 namespace champsim
 {
@@ -115,6 +118,11 @@ struct ooo_model_instr : champsim::program_ordered<ooo_model_instr> {
   bool scheduled = false;
   bool executed = false;
   bool completed = false;
+
+  bool translated = false;
+  bool stlb_miss = false;
+  bool mem_access_completed = false;
+  bool replay = false;
 
   unsigned completed_mem_ops = 0;
   int num_reg_dependent = 0;

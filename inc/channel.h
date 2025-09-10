@@ -27,6 +27,7 @@
 #include "access_type.h"
 #include "address.h"
 #include "champsim.h"
+#include "instruction.h"
 
 namespace champsim
 {
@@ -65,6 +66,8 @@ class channel
     champsim::address data{};
     uint64_t instr_id = 0;
     champsim::address ip{};
+
+    ooo_model_instr* instr = nullptr;
 
     std::vector<uint64_t> instr_depend_on_me{};
   };

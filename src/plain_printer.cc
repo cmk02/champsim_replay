@@ -42,6 +42,9 @@ std::vector<std::string> champsim::plain_printer::format(O3_CPU::stats_type stat
 {
   constexpr std::array types{branch_type::BRANCH_DIRECT_JUMP, branch_type::BRANCH_INDIRECT,      branch_type::BRANCH_CONDITIONAL,
                              branch_type::BRANCH_DIRECT_CALL, branch_type::BRANCH_INDIRECT_CALL, branch_type::BRANCH_RETURN};
+  constexpr std::array stall_types{StallType::ReOrderBuffer, StallType::LoadQueue, StallType::StoreQueue};
+  constexpr std::array rob_stall_types{ROBStallType::ADDR_TRANS, ROBStallType::REPLAY_LOAD, ROBStallType::NON_REPLAY_LOAD};
+
   auto total_branch = std::ceil(
       std::accumulate(std::begin(types), std::end(types), 0LL, [tbt = stats.total_branch_types](auto acc, auto next) { return acc + tbt.value_or(next, 0); }));
   auto total_mispredictions = std::ceil(
@@ -60,6 +63,27 @@ std::vector<std::string> champsim::plain_printer::format(O3_CPU::stats_type stat
   for (auto idx : types) {
     lines.push_back(fmt::format("{}: {}", branch_type_names.at(champsim::to_underlying(idx)),
                                 ::print_ratio(std::kilo::num * stats.branch_type_misses.value_or(idx, 0), stats.instrs())));
+  }
+
+  //@Minchan
+  lines.emplace_back("\n\n====Backend Stall Breakdown====");
+  for (auto idx : stall_types){
+    lines.push_back(fmt::format("{}: {}", stall_type_names.at(champsim::to_underlying(idx)), stats.stall_cycles[idx]));
+  }
+  // lines.push_back(fmt::format("Non-Stall Cycles: {}", stats.non_stall_cycles));
+
+  lines.emplace_back("\n\n====ROB Stall Breakdown====");
+  lines.emplace_back("\n== Average ==");
+  for(auto idx : rob_stall_types){
+    lines.push_back(fmt::format("{}: {}", rob_stall_type_names.at(champsim::to_underlying(idx)), (float)((float) stats.rob_stall_cycles[idx]/ (float) stats.rob_stall_counts[idx])));
+  }
+  lines.emplace_back("\n== Total ==");
+  for(auto idx : rob_stall_types){
+    lines.push_back(fmt::format("{}: {}", rob_stall_type_names.at(champsim::to_underlying(idx)), stats.rob_stall_cycles[idx]));
+  }
+  lines.emplace_back("\n== Counts ==");
+  for(auto idx : rob_stall_types){
+    lines.push_back(fmt::format("{}: {}", rob_stall_type_names.at(champsim::to_underlying(idx)), stats.rob_stall_counts[idx]));
   }
 
   return lines;

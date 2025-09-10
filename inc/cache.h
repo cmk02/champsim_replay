@@ -67,6 +67,8 @@ class CACHE : public champsim::operable
     uint32_t pf_metadata;
     uint32_t cpu;
 
+    ooo_model_instr* instr;
+
     access_type type;
     bool prefetch_from_this;
     bool skip_fill;

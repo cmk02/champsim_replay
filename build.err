@@ -1,0 +1,12 @@
+In file included from src/cache.cc:17:
+/home/cmk/eSCaL/ChampSim/inc/cache.h: In constructor ‘CACHE::tag_lookup_type::tag_lookup_type(const request_type&, bool, bool)’:
+/home/cmk/eSCaL/ChampSim/inc/cache.h:82:27: warning: ‘CACHE::tag_lookup_type::instr_depend_on_me’ will be initialized after [-Wreorder]
+   82 |     std::vector<uint64_t> instr_depend_on_me{};
+      |                           ^~~~~~~~~~~~~~~~~~
+/home/cmk/eSCaL/ChampSim/inc/cache.h:70:22: warning:   ‘ooo_model_instr* CACHE::tag_lookup_type::instr’ [-Wreorder]
+   70 |     ooo_model_instr* instr;
+      |                      ^~~~~
+src/cache.cc:95:1: warning:   when initialized here [-Wreorder]
+   95 | CACHE::tag_lookup_type::tag_lookup_type(const request_type& req, bool local_pref, bool skip)
+      | ^~~~~
+make: *** [Makefile:229: .csconfig/ac38e423ea6bce96_main.o] Interrupt
