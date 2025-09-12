@@ -53,6 +53,12 @@ class channel
   struct request {
     bool forward_checked = false;
     bool is_translated = true;
+    //HJ
+    bool trans_hit_L1D = false;
+    bool trans_hit_L2C = false;
+    bool trans_hit_LLC = false;
+    bool trans_hit_MEM = false;
+    //HJ
     bool response_requested = true;
 
     uint8_t asid[2] = {std::numeric_limits<uint8_t>::max(), std::numeric_limits<uint8_t>::max()};

@@ -92,11 +92,16 @@ auto CACHE::operator=(CACHE&& other) -> CACHE&
   return *this;
 }
 
+
 //@Minchan
 CACHE::tag_lookup_type::tag_lookup_type(const request_type& req, bool local_pref, bool skip)
     : address(req.address), v_address(req.v_address), data(req.data), ip(req.ip), instr_id(req.instr_id), pf_metadata(req.pf_metadata), cpu(req.cpu),
-      type(req.type), prefetch_from_this(local_pref), skip_fill(skip), is_translated(req.is_translated), instr_depend_on_me(req.instr_depend_on_me), instr(req.instr)
+      instr(req.instr), type(req.type), prefetch_from_this(local_pref), skip_fill(skip), is_translated(req.is_translated), instr_depend_on_me(req.instr_depend_on_me)
 {
+  trans_hit_L1D = req.trans_hit_L1D;
+  trans_hit_L2C = req.trans_hit_L2C;
+  trans_hit_LLC = req.trans_hit_LLC;
+  trans_hit_MEM = req.trans_hit_MEM;
 }
 
 CACHE::mshr_type::mshr_type(const tag_lookup_type& req, champsim::chrono::clock::time_point _time_enqueued)
@@ -251,11 +256,14 @@ bool CACHE::handle_fill(const mshr_type& fill_mshr)
 bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
 {
   cpu = handle_pkt.cpu;
-
-  // access cache
-  auto [set_begin, set_end] = get_set_span(handle_pkt.address);
-  auto way = std::find_if(set_begin, set_end, [matcher = matches_address(handle_pkt.address)](const auto& x) { return x.valid && matcher(x); });
-  const auto hit = (way != set_end);
+  //HJ
+  auto [set_begin, set_end] = this->get_set_span(handle_pkt.address);
+  auto way = std::find_if(set_begin, set_end,
+                          [matcher = this->matches_address(handle_pkt.address)](const auto& x) {
+                            return x.valid && matcher(x);
+                          });
+  const bool hit = (way != set_end);
+  //HJ
   const auto useful_prefetch = (hit && way->prefetch && !handle_pkt.prefetch_from_this);
 
   if constexpr (champsim::debug_print) {
@@ -282,7 +290,13 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
 
   if (hit) {
     sim_stats.hits.increment(std::pair{handle_pkt.type, handle_pkt.cpu});
-
+    //HJ
+    if (handle_pkt.type == access_type::TRANSLATION) {
+      if (NAME == "cpu0_L1D")        handle_pkt.trans_hit_L1D = true;
+      else if (NAME == "cpu0_L2C")   handle_pkt.trans_hit_L2C = true;
+      else if (NAME == "LLC")        handle_pkt.trans_hit_LLC = true;
+    }
+    //HJ
     response_type response{handle_pkt.address, handle_pkt.v_address, way->data, metadata_thru, handle_pkt.instr_depend_on_me};
     for (auto* ret : handle_pkt.to_return) {
       ret->push_back(response);
@@ -322,6 +336,12 @@ auto CACHE::mshr_and_forward_packet(const tag_lookup_type& handle_pkt) -> std::p
   fwd_pkt.response_requested = (!handle_pkt.prefetch_from_this || !handle_pkt.skip_fill);
   //@Minchan
   fwd_pkt.instr = handle_pkt.instr;
+    //HJ
+  fwd_pkt.trans_hit_L1D = handle_pkt.trans_hit_L1D;
+  fwd_pkt.trans_hit_L2C = handle_pkt.trans_hit_L2C;
+  fwd_pkt.trans_hit_LLC = handle_pkt.trans_hit_LLC;
+  fwd_pkt.trans_hit_MEM = handle_pkt.trans_hit_MEM;
+  //HJ
 
   return std::pair{std::move(to_allocate), std::move(fwd_pkt)};
 }
@@ -368,7 +388,11 @@ bool CACHE::handle_miss(const tag_lookup_type& handle_pkt)
     if (!success) {
       return false;
     }
-
+    //HJ
+    if (handle_pkt.type == access_type::TRANSLATION && success) {
+      if (NAME == "LLC")        handle_pkt.trans_hit_MEM = true;
+    }
+    //HJ
     // Allocate an MSHR
     if (mshr_pkt.second.response_requested) {
       MSHR.emplace_back(std::move(mshr_pkt.first));
@@ -397,29 +421,49 @@ bool CACHE::handle_write(const tag_lookup_type& handle_pkt)
   return true;
 }
 
+//HJ
 template <bool UpdateRequest>
 auto CACHE::initiate_tag_check(champsim::channel* ul)
 {
-  return [time = current_time + (warmup ? champsim::chrono::clock::duration{} : HIT_LATENCY), ul](const auto& entry) {
+  const auto base_now = current_time;
+
+  return [this, base_now, ul](const auto& entry) {
+    // Side-effect-free tag probe to know if current address is present.
+    const bool hit = this->probe_tag_hit_only(entry.address);
+
+    // Convert source entry (request or prior tag) into the in-flight tag entry.
     CACHE::tag_lookup_type retval{entry};
-    retval.event_cycle = time;
+
+    // If this request has any prior translation hit provenance (at L1D/L2C/LLC/MEM),
+    // we’ll treat a *miss* here as zero-latency (i.e., don't add HIT_LATENCY).
+    const bool any_trans_hit =
+        retval.trans_hit_L1D || retval.trans_hit_L2C || retval.trans_hit_LLC || retval.trans_hit_MEM;
+
+
+    // Only zero on miss; hits keep the normal HIT_LATENCY.
+    const bool zero_on_miss = (!hit) && any_trans_hit;
+    fmt::print("L1D {}, L2C {}, LLC {}, MEM {}\n",retval.trans_hit_L1D,retval.trans_hit_L2C, retval.trans_hit_LLC, retval.trans_hit_MEM);
+    // Schedule when this tag check will be ready.
+    retval.event_cycle = base_now + (
+      warmup || zero_on_miss ? champsim::chrono::clock::duration{} : HIT_LATENCY
+    );
 
     if constexpr (UpdateRequest) {
       if (entry.response_requested) {
-        retval.to_return = {&ul->returned};
+        retval.to_return = { &ul->returned };
       }
     } else {
-      (void)ul; // supress warning about ul being unused
+      (void)ul;
     }
 
     if constexpr (champsim::debug_print) {
-      fmt::print("[TAG] initiate_tag_check instr_id: {} address: {} v_address: {} type: {} response_requested: {}\n", retval.instr_id, retval.address,
-                 retval.v_address, access_type_names.at(champsim::to_underlying(retval.type)), !std::empty(retval.to_return));
+      fmt::print("[TAG] initiate_tag_check id:{} addr:{} hit:{} any_trans_hit:{} zero_on_miss:{}\n",
+                 retval.instr_id, retval.address, hit, any_trans_hit, zero_on_miss);
     }
-
     return retval;
   };
 }
+//HJ
 
 long CACHE::operate()
 {
@@ -548,6 +592,19 @@ std::pair<It, It> get_span(It anchor, typename std::iterator_traits<It>::differe
   return {std::move(begin), std::next(begin, num_way)};
 }
 
+
+//HJ
+bool CACHE::probe_tag_hit_only(champsim::address addr) const
+{
+  auto [set_begin, set_end] = this->get_set_span(addr);
+  auto way = std::find_if(set_begin, set_end,
+                          [matcher = this->matches_address(addr)](const auto& x) {
+                            return x.valid && matcher(x);
+                          });
+  return way != set_end;
+}
+//HJ
+
 auto CACHE::get_set_span(champsim::address address) -> std::pair<set_type::iterator, set_type::iterator>
 {
   const auto set_idx = get_set_index(address);
@@ -647,10 +704,11 @@ void CACHE::finish_translation(const response_type& packet)
   auto matches_vpage = [page_num = champsim::page_number{packet.v_address}](const auto& entry) {
     return (champsim::page_number{entry.v_address} == page_num) && !entry.is_translated;
   };
-  auto mark_translated = [p_page = champsim::page_number{packet.data}, this](auto& entry) {
+  auto mark_translated = [p_page = champsim::page_number{packet.data}, this, &packet](auto& entry) {
     [[maybe_unused]] auto old_address = entry.address;
     entry.address = champsim::address{champsim::splice(p_page, champsim::page_offset{entry.v_address})}; // translated address
     entry.is_translated = true;                                                                          // This entry is now translated
+  
     //@Minchan
     if(entry.instr){
       // if(!warmup)
@@ -692,8 +750,12 @@ void CACHE::issue_translation(tag_lookup_type& q_entry) const
     fwd_pkt.ip = q_entry.ip;
     //@Minchan
     fwd_pkt.instr = q_entry.instr;
-
-
+    //HJ
+    fwd_pkt.trans_hit_L1D = q_entry.trans_hit_L1D;
+    fwd_pkt.trans_hit_L2C = q_entry.trans_hit_L2C;
+    fwd_pkt.trans_hit_LLC = q_entry.trans_hit_LLC;
+    fwd_pkt.trans_hit_MEM = q_entry.trans_hit_MEM;
+    //HJ
     fwd_pkt.instr_depend_on_me = q_entry.instr_depend_on_me;
     fwd_pkt.is_translated = true;
 

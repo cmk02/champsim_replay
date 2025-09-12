@@ -70,6 +70,12 @@ class CACHE : public champsim::operable
     ooo_model_instr* instr;
 
     access_type type;
+    //HJ
+    mutable bool trans_hit_L1D = false;
+    mutable bool trans_hit_L2C = false;
+    mutable bool trans_hit_LLC = false;
+    mutable bool trans_hit_MEM = false;
+    //HJ
     bool prefetch_from_this;
     bool skip_fill;
     bool is_translated;
@@ -135,6 +141,9 @@ private:
   [[nodiscard]] std::pair<set_type::const_iterator, set_type::const_iterator> get_set_span(champsim::address address) const;
   [[nodiscard]] long get_set_index(champsim::address address) const;
 
+  //HJ
+  bool probe_tag_hit_only(champsim::address addr) const;
+  //HJ
   template <typename T>
   bool should_activate_prefetcher(const T& pkt) const;
 
