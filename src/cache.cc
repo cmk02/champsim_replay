@@ -274,12 +274,12 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
   impl_update_replacement_state(handle_pkt.cpu, get_set_index(handle_pkt.address), way_idx, module_address(handle_pkt), handle_pkt.ip, {}, handle_pkt.type,
                                 hit);
   //@Minchan
-  if(NAME=="cpu0_STLB" && !hit){
+  if(NAME=="cpu0_STLB" && !hit && !warmup){
     // fmt::print("cycles: {} instr_id: {} STLB Miss\n", current_time.time_since_epoch() / clock_period, handle_pkt.instr_id);
-    if(handle_pkt.instr)
+    if(handle_pkt.instr){
       handle_pkt.instr->stlb_miss = true;
   }
-
+  }
   if (hit) {
     sim_stats.hits.increment(std::pair{handle_pkt.type, handle_pkt.cpu});
 
@@ -650,13 +650,15 @@ void CACHE::finish_translation(const response_type& packet)
   auto mark_translated = [p_page = champsim::page_number{packet.data}, this](auto& entry) {
     [[maybe_unused]] auto old_address = entry.address;
     entry.address = champsim::address{champsim::splice(p_page, champsim::page_offset{entry.v_address})}; // translated address
-    entry.is_translated = true;                                                                          // This entry is now translated
-    //@Minchan
-    if(entry.instr){
+    if(entry.instr && !warmup){
       // if(!warmup)
       //   fmt::print("cycles: {} instr_id: {} translation completed\n", current_time.time_since_epoch() / clock_period, entry.instr->instr_id);
       entry.instr->translated = true;
+
     }
+    entry.is_translated = true;                                                                          // This entry is now translated
+    //@Minchan
+
     if constexpr (champsim::debug_print) {
       fmt::print("[{}_TRANSLATE] finish_translation old: {} paddr: {} vaddr: {} type: {} cycle: {}\n", this->NAME, old_address, entry.address, entry.v_address,
                  access_type_names.at(champsim::to_underlying(entry.type)), this->current_time.time_since_epoch() / this->clock_period);

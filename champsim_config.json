@@ -14,7 +14,7 @@
       "register_file_size": 128,
       "rob_size": 576,
       "lq_size": 384,
-      "sq_size": 128,
+      "sq_size": 512,
       "fetch_width": 12,
       "decode_width": 8,
       "dispatch_width": 8,
@@ -78,7 +78,8 @@
     "wq_size": 32,
     "pq_size": 16,
     "mshr_size": 32,
-    "latency": 10,
+    "hit_latency": 9,
+    "fill_latency": 1,
     "max_tag_check": 1,
     "max_fill": 1,
     "prefetch_as_load": false,
@@ -149,7 +150,8 @@
     "wq_size": 32,
     "pq_size": 32,
     "mshr_size": 64,
-    "latency": 20,
+    "hit_latency": 29,
+    "fill_latency": 1,
     "max_tag_check": 1,
     "max_fill": 1,
     "prefetch_as_load": false,
@@ -170,10 +172,10 @@
     "channel_width": 8,
     "wq_size": 64,
     "rq_size": 64,
-    "tCAS": 24,
-    "tRCD": 24,
-    "tRP": 24,
-    "tRAS": 52,
+    "tCAS": 12,
+    "tRCD": 12,
+    "tRP": 12,
+    "tRAS": 25,
     "refresh_period": 32,
     "refreshes_per_period": 8192
   },
@@ -185,3 +187,4 @@
     "randomization": 1
   }
 }
+

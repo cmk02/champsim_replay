@@ -409,6 +409,7 @@ long O3_CPU::dispatch_instruction()
   champsim::bandwidth available_dispatch_bandwidth{DISPATCH_WIDTH};
 
   //@Minchan: Check Stall and Update stats
+  if(!warmup){
   if (available_dispatch_bandwidth.has_remaining() && !std::empty(DISPATCH_BUFFER) && DISPATCH_BUFFER.front().ready_time <= current_time){
     StallType stall_type = StallType::NUM_STALL_TYPE;
     // 1. ROB Stall
@@ -453,7 +454,7 @@ long O3_CPU::dispatch_instruction()
 
     }
     
-      
+  }
   }
 
   // dispatch DISPATCH_WIDTH instructions into the ROB
@@ -659,8 +660,9 @@ bool O3_CPU::do_complete_store(const LSQ_ENTRY& sq_entry)
   data_packet.instr_id = sq_entry.instr_id;
   data_packet.ip = sq_entry.ip;
   //@Minchan: propagate ooo_model_instr from LSQ_Entry to request_type data type
+  if(!warmup){
   data_packet.instr = sq_entry.instr;
-
+  }
   if constexpr (champsim::debug_print) {
     fmt::print("[SQ] {} instr_id: {} vaddr: {}\n", __func__, data_packet.instr_id, data_packet.v_address);
   }
@@ -675,8 +677,9 @@ bool O3_CPU::execute_load(const LSQ_ENTRY& lq_entry)
   data_packet.instr_id = lq_entry.instr_id;
   data_packet.ip = lq_entry.ip;
   //@Minchan: propagate ooo_model_instr from LSQ_Entry to request_type data type
+  if(!warmup){
   data_packet.instr = lq_entry.instr;
-
+  }
   if constexpr (champsim::debug_print) {
     fmt::print("[LQ] {} instr_id: {} vaddr: {}\n", __func__, data_packet.instr_id, data_packet.v_address);
   }
