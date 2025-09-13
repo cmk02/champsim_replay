@@ -95,7 +95,7 @@ auto CACHE::operator=(CACHE&& other) -> CACHE&
 //@Minchan
 CACHE::tag_lookup_type::tag_lookup_type(const request_type& req, bool local_pref, bool skip)
     : address(req.address), v_address(req.v_address), data(req.data), ip(req.ip), instr_id(req.instr_id), pf_metadata(req.pf_metadata), cpu(req.cpu),
-      type(req.type), prefetch_from_this(local_pref), skip_fill(skip), is_translated(req.is_translated), instr_depend_on_me(req.instr_depend_on_me), instr(req.instr)
+      type(req.type), prefetch_from_this(local_pref), skip_fill(skip), is_translated(req.is_translated), instr_depend_on_me(req.instr_depend_on_me), instr(req.instr), lsq_entry((LSQ_ENTRY*)req.lsq_entry)
 {
 }
 
@@ -278,6 +278,8 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
     // fmt::print("cycles: {} instr_id: {} STLB Miss\n", current_time.time_since_epoch() / clock_period, handle_pkt.instr_id);
     if(handle_pkt.instr)
       handle_pkt.instr->stlb_miss = true;
+    if(handle_pkt.lsq_entry)
+      handle_pkt.lsq_entry->stlb_miss = true;
   }
 
   if (hit) {
@@ -656,6 +658,7 @@ void CACHE::finish_translation(const response_type& packet)
       // if(!warmup)
       //   fmt::print("cycles: {} instr_id: {} translation completed\n", current_time.time_since_epoch() / clock_period, entry.instr->instr_id);
       entry.instr->translated = true;
+      entry.lsq_entry->translated = true;
     }
     if constexpr (champsim::debug_print) {
       fmt::print("[{}_TRANSLATE] finish_translation old: {} paddr: {} vaddr: {} type: {} cycle: {}\n", this->NAME, old_address, entry.address, entry.v_address,
@@ -692,6 +695,7 @@ void CACHE::issue_translation(tag_lookup_type& q_entry) const
     fwd_pkt.ip = q_entry.ip;
     //@Minchan
     fwd_pkt.instr = q_entry.instr;
+    fwd_pkt.lsq_entry = q_entry.lsq_entry;
 
 
     fwd_pkt.instr_depend_on_me = q_entry.instr_depend_on_me;

@@ -15,7 +15,7 @@ enum StallType{
   NUM_STALL_TYPE
 };
 
-enum ROBStallType{
+enum StallCauseType{
   ADDR_TRANS,
   REPLAY_LOAD,
   NON_REPLAY_LOAD,
@@ -32,8 +32,8 @@ struct cpu_stats {
 
   //@Minchan
   uint64_t stall_cycles[StallType::NUM_STALL_TYPE] = {0};
-  uint64_t rob_stall_cycles[ROBStallType::NUM_ROB_STALL_TYPE] = {0};
-  uint32_t rob_stall_counts[ROBStallType::NUM_ROB_STALL_TYPE] = {0};
+  uint64_t core_stall_cycles[StallType::NUM_STALL_TYPE][StallCauseType::NUM_ROB_STALL_TYPE] = {0};
+  uint32_t core_stall_counts[StallType::NUM_STALL_TYPE][StallCauseType::NUM_ROB_STALL_TYPE] = {0};
   uint64_t non_stall_cycles = 0;
 
   champsim::stats::event_counter<branch_type> total_branch_types = {};

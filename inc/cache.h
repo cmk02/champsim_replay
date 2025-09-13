@@ -46,6 +46,7 @@
 #include "operable.h"
 #include "util/to_underlying.h" // for to_underlying
 #include "waitable.h"
+#include "ooo_cpu.h"
 
 class CACHE : public champsim::operable
 {
@@ -67,7 +68,9 @@ class CACHE : public champsim::operable
     uint32_t pf_metadata;
     uint32_t cpu;
 
+    //@Minchan
     ooo_model_instr* instr;
+    LSQ_ENTRY* lsq_entry;
 
     access_type type;
     bool prefetch_from_this;

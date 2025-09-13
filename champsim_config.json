@@ -13,7 +13,7 @@
       "dispatch_buffer_size": 32,
       "register_file_size": 128,
       "rob_size": 576,
-      "lq_size": 384,
+      "lq_size": 192,
       "sq_size": 128,
       "fetch_width": 12,
       "decode_width": 8,

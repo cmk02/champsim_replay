@@ -49,7 +49,7 @@ inline constexpr std::array branch_type_names{"BRANCH_DIRECT_JUMP"sv, "BRANCH_IN
                                               "BRANCH_DIRECT_CALL"sv, "BRANCH_INDIRECT_CALL"sv, "BRANCH_RETURN"sv};
 inline constexpr std::array stall_type_names{"ROB_STALL"sv, "LQ_STALL"sv, "SQ_STALL"sv};
 
-inline constexpr std::array rob_stall_type_names{"ADDR_TRANS"sv, "REPLAY_LOAD"sv, "NON_REPLAY_LOAD"sv};
+inline constexpr std::array stall_cause_names{"ADDR_TRANS"sv, "REPLAY_LOAD"sv, "NON_REPLAY_LOAD"sv};
 
 namespace champsim
 {

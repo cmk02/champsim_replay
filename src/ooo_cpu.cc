@@ -427,31 +427,63 @@ long O3_CPU::dispatch_instruction()
     }
     
     //@Minchan: We need to handle rob stall due to dtlb miss
-    if(stall_type == StallType::ReOrderBuffer){
-      ROBStallType rob_stall_type;
-      if(ROB.front().stlb_miss) {
-        if(!ROB.front().translated){
-          sim_stats.rob_stall_cycles[ROBStallType::ADDR_TRANS]++;
-          rob_stall_type = ADDR_TRANS;
+    if(stall_type != StallType::NUM_STALL_TYPE){
+      uint64_t stall_cause_id = 0;
+      StallCauseType stall_cause;
+      if(stall_type == StallType::ReOrderBuffer){
+        stall_cause_id = ROB.front().instr_id;
+        if(ROB.front().stlb_miss) {
+          if(!ROB.front().translated){
+            stall_cause = StallCauseType::ADDR_TRANS;
+          }
+          else{
+            stall_cause = StallCauseType::REPLAY_LOAD;
+          }
+        } else {
+          stall_cause = StallCauseType::NON_REPLAY_LOAD;
         }
-        else{
-          rob_stall_type = REPLAY_LOAD;
-          sim_stats.rob_stall_cycles[ROBStallType::REPLAY_LOAD]++;
+      }
+      else if (stall_type == StallType::LoadQueue){
+        auto& e = LQ.front().value();
+        stall_cause_id = e.instr->instr_id;
+        if(e.stlb_miss) {
+          if(!e.translated){
+            stall_cause = StallCauseType::ADDR_TRANS;
+          }
+          else{
+            stall_cause = StallCauseType::REPLAY_LOAD;
+          }
+        } else {
+          stall_cause = StallCauseType::NON_REPLAY_LOAD;
         }
-      } else {
-        rob_stall_type = NON_REPLAY_LOAD;
-        sim_stats.rob_stall_cycles[ROBStallType::NON_REPLAY_LOAD]++;
       }
-
-      //@Minchan: count rob stall instances
-      if(prev_rob_stall_cause_id != ROB.front().instr_id || prev_rob_stall_cause != rob_stall_type){
-        sim_stats.rob_stall_counts[rob_stall_type]++;
+      else {
+        assert(stall_type == StallType::StoreQueue);
+        stall_cause_id = SQ.front().instr->instr_id;
+        if(SQ.front().stlb_miss) {
+          if(!SQ.front().translated){
+            stall_cause = StallCauseType::ADDR_TRANS;
+          }
+          else{
+            stall_cause = StallCauseType::REPLAY_LOAD;
+          }
+        } else {
+          stall_cause = StallCauseType::NON_REPLAY_LOAD;
+        }
       }
+      sim_stats.core_stall_cycles[stall_type][stall_cause]++;
 
-      prev_rob_stall_cause_id = ROB.front().instr_id;
-      prev_rob_stall_cause = rob_stall_type;
+      if(prev_stall_cause_id != stall_cause_id || prev_stall_cause != stall_cause){
+        sim_stats.core_stall_counts[stall_type][stall_cause]++;
+      }
+    
+      prev_stall_cause_id = stall_cause_id;
+      prev_stall_cause = stall_cause;
 
     }
+
+
+
     
       
   }
@@ -660,6 +692,7 @@ bool O3_CPU::do_complete_store(const LSQ_ENTRY& sq_entry)
   data_packet.ip = sq_entry.ip;
   //@Minchan: propagate ooo_model_instr from LSQ_Entry to request_type data type
   data_packet.instr = sq_entry.instr;
+  data_packet.lsq_entry = (void*)&sq_entry;
 
   if constexpr (champsim::debug_print) {
     fmt::print("[SQ] {} instr_id: {} vaddr: {}\n", __func__, data_packet.instr_id, data_packet.v_address);
@@ -676,6 +709,7 @@ bool O3_CPU::execute_load(const LSQ_ENTRY& lq_entry)
   data_packet.ip = lq_entry.ip;
   //@Minchan: propagate ooo_model_instr from LSQ_Entry to request_type data type
   data_packet.instr = lq_entry.instr;
+  data_packet.lsq_entry = (void*) &lq_entry;
 
   if constexpr (champsim::debug_print) {
     fmt::print("[LQ] {} instr_id: {} vaddr: {}\n", __func__, data_packet.instr_id, data_packet.v_address);
