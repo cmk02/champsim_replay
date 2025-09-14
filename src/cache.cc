@@ -32,6 +32,8 @@
 #include "util/bits.h"
 #include "util/span.h"
 
+// #define PERFECT_FRONT
+
 CACHE::CACHE(CACHE&& other)
     : operable(other),
 
@@ -274,9 +276,9 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
   impl_update_replacement_state(handle_pkt.cpu, get_set_index(handle_pkt.address), way_idx, module_address(handle_pkt), handle_pkt.ip, {}, handle_pkt.type,
                                 hit);
   //@Minchan
-  if(NAME=="cpu0_STLB" && !hit && !warmup){
+  if(NAME=="cpu0_STLB" && !hit){
     // fmt::print("cycles: {} instr_id: {} STLB Miss\n", current_time.time_since_epoch() / clock_period, handle_pkt.instr_id);
-    if(handle_pkt.instr){
+    if(handle_pkt.instr && !warmup){
       handle_pkt.instr->stlb_miss = true;
   }
   }
@@ -651,8 +653,7 @@ void CACHE::finish_translation(const response_type& packet)
     [[maybe_unused]] auto old_address = entry.address;
     entry.address = champsim::address{champsim::splice(p_page, champsim::page_offset{entry.v_address})}; // translated address
     if(entry.instr && !warmup){
-      // if(!warmup)
-      //   fmt::print("cycles: {} instr_id: {} translation completed\n", current_time.time_since_epoch() / clock_period, entry.instr->instr_id);
+        // fmt::print("cycles: {} instr_id: {} translation completed\n", current_time.time_since_epoch() / clock_period, entry.instr_id);
       entry.instr->translated = true;
 
     }

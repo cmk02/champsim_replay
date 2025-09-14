@@ -409,7 +409,6 @@ long O3_CPU::dispatch_instruction()
   champsim::bandwidth available_dispatch_bandwidth{DISPATCH_WIDTH};
 
   //@Minchan: Check Stall and Update stats
-  if(!warmup){
   if (available_dispatch_bandwidth.has_remaining() && !std::empty(DISPATCH_BUFFER) && DISPATCH_BUFFER.front().ready_time <= current_time){
     StallType stall_type = StallType::NUM_STALL_TYPE;
     // 1. ROB Stall
@@ -454,7 +453,6 @@ long O3_CPU::dispatch_instruction()
 
     }
     
-  }
   }
 
   // dispatch DISPATCH_WIDTH instructions into the ROB
@@ -569,6 +567,7 @@ void O3_CPU::do_memory_scheduling(ooo_model_instr& instr)
       return lhs.virtual_address != smem || (rhs.virtual_address == smem && LSQ_ENTRY::program_order(lhs, rhs));
     });
     if (sq_it != std::end(SQ) && sq_it->virtual_address == smem) {
+      (*q_entry)->forwarded = true;
       if (sq_it->fetch_issued) { // Store already executed
         (*q_entry)->finish(instr);
         q_entry->reset();
@@ -660,9 +659,9 @@ bool O3_CPU::do_complete_store(const LSQ_ENTRY& sq_entry)
   data_packet.instr_id = sq_entry.instr_id;
   data_packet.ip = sq_entry.ip;
   //@Minchan: propagate ooo_model_instr from LSQ_Entry to request_type data type
-  if(!warmup){
-  data_packet.instr = sq_entry.instr;
-  }
+  
+  data_packet.instr = nullptr;
+  
   if constexpr (champsim::debug_print) {
     fmt::print("[SQ] {} instr_id: {} vaddr: {}\n", __func__, data_packet.instr_id, data_packet.v_address);
   }
@@ -672,14 +671,16 @@ bool O3_CPU::do_complete_store(const LSQ_ENTRY& sq_entry)
 
 bool O3_CPU::execute_load(const LSQ_ENTRY& lq_entry)
 {
+  if(lq_entry.forwarded)
+    return false;
   CacheBus::request_type data_packet;
   data_packet.v_address = lq_entry.virtual_address;
   data_packet.instr_id = lq_entry.instr_id;
   data_packet.ip = lq_entry.ip;
   //@Minchan: propagate ooo_model_instr from LSQ_Entry to request_type data type
-  if(!warmup){
+
   data_packet.instr = lq_entry.instr;
-  }
+
   if constexpr (champsim::debug_print) {
     fmt::print("[LQ] {} instr_id: {} vaddr: {}\n", __func__, data_packet.instr_id, data_packet.v_address);
   }
@@ -766,6 +767,12 @@ long O3_CPU::retire_rob()
   auto [retire_begin, retire_end] =
       champsim::get_span_p(std::cbegin(ROB), std::cend(ROB), champsim::bandwidth{RETIRE_WIDTH}, [](const auto& x) { return x.completed; });
   assert(std::distance(retire_begin, retire_end) >= 0); // end succeeds begin
+  
+  // if(!warmup){
+  //   std::for_each(retire_begin, retire_end, [cycle = current_time.time_since_epoch() / clock_period](const auto& x) {
+  //     fmt::print("[ROB] retire_rob instr_id: {} is retired cycle: {}\n", x.instr_id, cycle);
+  //   });
+  // }
   if constexpr (champsim::debug_print) {
     std::for_each(retire_begin, retire_end, [cycle = current_time.time_since_epoch() / clock_period](const auto& x) {
       fmt::print("[ROB] retire_rob instr_id: {} is retired cycle: {}\n", x.instr_id, cycle);
