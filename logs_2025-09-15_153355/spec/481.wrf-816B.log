@@ -1,0 +1,5 @@
+[2025-09-15 17:34:01] START suite=spec trace=481.wrf-816B
+CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/spec2k17/481.wrf-816B.champsimtrace.xz
+terminate called after throwing an instance of 'std::bad_array_new_length'
+  what():  std::bad_array_new_length
+./run_champsim_all.sh: line 44: 3101103 Aborted                 (core dumped) "$CHAMPSIM_BIN" -w "$WARMUP_ITERS" -i "$MEASURE_ITERS" "$trace_dir/${name}.champsimtrace.xz"

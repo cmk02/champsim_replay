@@ -1,0 +1,2 @@
+[2025-09-16 00:36:49] START suite=qualcomm_srv trace=srv228_ap
+CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/itp_asplos25_AE/traces/qualcomm_srv/srv228_ap.champsimtrace.xz

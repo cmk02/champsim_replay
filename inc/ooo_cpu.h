@@ -70,6 +70,7 @@ struct LSQ_ENTRY : champsim::program_ordered<LSQ_ENTRY> {
 
   // @minchan: propagate ooo_model_instr*
   ooo_model_instr* instr = nullptr;
+  bool forwarded = false;
 
   std::array<uint8_t, 2> asid = {std::numeric_limits<uint8_t>::max(), std::numeric_limits<uint8_t>::max()};
   bool fetch_issued = false;
@@ -87,8 +88,8 @@ class O3_CPU : public champsim::operable
 {
 public:
   uint32_t cpu = 0;
-  uint32_t prev_rob_stall_cause_id = 0;
-  uint32_t prev_rob_stall_cause = 0;
+  uint64_t prev_rob_stall_cause_id = 0;
+  uint64_t prev_rob_stall_cause = 0;
   // cycle
   champsim::chrono::clock::time_point begin_phase_time{};
   long long begin_phase_instr = 0;
