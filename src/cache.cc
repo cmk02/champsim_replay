@@ -97,7 +97,7 @@ auto CACHE::operator=(CACHE&& other) -> CACHE&
 //@Minchan
 CACHE::tag_lookup_type::tag_lookup_type(const request_type& req, bool local_pref, bool skip)
     : address(req.address), v_address(req.v_address), data(req.data), ip(req.ip), instr_id(req.instr_id), pf_metadata(req.pf_metadata), cpu(req.cpu),
-      type(req.type), prefetch_from_this(local_pref), skip_fill(skip), is_translated(req.is_translated), instr_depend_on_me(req.instr_depend_on_me), instr(req.instr)
+      type(req.type), prefetch_from_this(local_pref), skip_fill(skip), is_translated(req.is_translated), instr_depend_on_me(req.instr_depend_on_me), instr(req.instr), lsq_entry((LSQ_ENTRY*)(req.lsq_entry))
 {
 }
 
@@ -280,6 +280,7 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
     // fmt::print("cycles: {} instr_id: {} STLB Miss\n", current_time.time_since_epoch() / clock_period, handle_pkt.instr_id);
     if(handle_pkt.instr && !warmup){
       handle_pkt.instr->stlb_miss = true;
+    if(handle_pkt.lsq_entry && !warmup)
   }
   }
   if (hit) {
@@ -324,6 +325,7 @@ auto CACHE::mshr_and_forward_packet(const tag_lookup_type& handle_pkt) -> std::p
   fwd_pkt.response_requested = (!handle_pkt.prefetch_from_this || !handle_pkt.skip_fill);
   //@Minchan
   fwd_pkt.instr = handle_pkt.instr;
+  fwd_pkt.lsq_entry = handle_pkt.lsq_entry;
 
   return std::pair{std::move(to_allocate), std::move(fwd_pkt)};
 }
@@ -695,6 +697,7 @@ void CACHE::issue_translation(tag_lookup_type& q_entry) const
     fwd_pkt.ip = q_entry.ip;
     //@Minchan
     fwd_pkt.instr = q_entry.instr;
+    fwd_pkt.lsq_entry = q_entry.lsq_entry;
 
 
     fwd_pkt.instr_depend_on_me = q_entry.instr_depend_on_me;

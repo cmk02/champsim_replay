@@ -67,7 +67,9 @@ class channel
     uint64_t instr_id = 0;
     champsim::address ip{};
 
+    //@Minchan
     ooo_model_instr* instr = nullptr;
+    void* lsq_entry = nullptr;
 
     std::vector<uint64_t> instr_depend_on_me{};
   };

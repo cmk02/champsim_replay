@@ -586,7 +586,7 @@ void O3_CPU::do_memory_scheduling(ooo_model_instr& instr)
   // store
   for (auto& dmem : instr.destination_memory) {
     //@Minchan
-    SQ.emplace_back(nullptr, dmem, instr.instr_id, instr.ip, instr.asid); // add it to the store queue
+    SQ.emplace_back(&instr, dmem, instr.instr_id, instr.ip, instr.asid); // add it to the store queue
   }
 
   if constexpr (champsim::debug_print) {
@@ -659,8 +659,8 @@ bool O3_CPU::do_complete_store(const LSQ_ENTRY& sq_entry)
   data_packet.instr_id = sq_entry.instr_id;
   data_packet.ip = sq_entry.ip;
   //@Minchan: propagate ooo_model_instr from LSQ_Entry to request_type data type
-  
   data_packet.instr = nullptr;
+  data_packet.lsq_entry = (void*)&sq_entry;
   
   if constexpr (champsim::debug_print) {
     fmt::print("[SQ] {} instr_id: {} vaddr: {}\n", __func__, data_packet.instr_id, data_packet.v_address);
@@ -678,8 +678,8 @@ bool O3_CPU::execute_load(const LSQ_ENTRY& lq_entry)
   data_packet.instr_id = lq_entry.instr_id;
   data_packet.ip = lq_entry.ip;
   //@Minchan: propagate ooo_model_instr from LSQ_Entry to request_type data type
-
   data_packet.instr = lq_entry.instr;
+  data_packet.lsq_entry = (void*)&lq_entry;
 
   if constexpr (champsim::debug_print) {
     fmt::print("[LQ] {} instr_id: {} vaddr: {}\n", __func__, data_packet.instr_id, data_packet.v_address);
