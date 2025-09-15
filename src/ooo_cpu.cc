@@ -272,6 +272,7 @@ bool O3_CPU::do_fetch_instruction(std::deque<ooo_model_instr>::iterator begin, s
   fetch_packet.v_address = begin->ip;
   fetch_packet.instr_id = begin->instr_id;
   fetch_packet.ip = begin->ip;
+  fetch_packet.instr = &(*begin);
 
   std::transform(begin, end, std::back_inserter(fetch_packet.instr_depend_on_me), [](const auto& instr) { return instr.instr_id; });
 
@@ -427,65 +428,32 @@ long O3_CPU::dispatch_instruction()
     }
     
     //@Minchan: We need to handle rob stall due to dtlb miss
-    if(stall_type != StallType::NUM_STALL_TYPE){
-      uint64_t stall_cause_id = 0;
-      StallCauseType stall_cause;
-      if(stall_type == StallType::ReOrderBuffer){
-        stall_cause_id = ROB.front().instr_id;
-        if(ROB.front().stlb_miss) {
-          if(!ROB.front().translated){
-            stall_cause = StallCauseType::ADDR_TRANS;
-          }
-          else{
-            stall_cause = StallCauseType::REPLAY_LOAD;
-          }
-        } else {
-          stall_cause = StallCauseType::NON_REPLAY_LOAD;
+    if(stall_type == StallType::ReOrderBuffer){
+      ROBStallType rob_stall_type;
+      if(ROB.front().stlb_miss) {
+        if(!ROB.front().translated){
+          sim_stats.rob_stall_cycles[ROBStallType::ADDR_TRANS]++;
+          rob_stall_type = ADDR_TRANS;
         }
-      }
-      else if (stall_type == StallType::LoadQueue){
-        auto& e = LQ.front().value();
-        stall_cause_id = e.instr->instr_id;
-        if(e.stlb_miss) {
-          if(!e.translated){
-            stall_cause = StallCauseType::ADDR_TRANS;
-          }
-          else{
-            stall_cause = StallCauseType::REPLAY_LOAD;
-          }
-        } else {
-          stall_cause = StallCauseType::NON_REPLAY_LOAD;
+        else{
+          rob_stall_type = REPLAY_LOAD;
+          sim_stats.rob_stall_cycles[ROBStallType::REPLAY_LOAD]++;
         }
+      } else {
+        rob_stall_type = NON_REPLAY_LOAD;
+        sim_stats.rob_stall_cycles[ROBStallType::NON_REPLAY_LOAD]++;
       }
-      else {
-        assert(stall_type == StallType::StoreQueue);
-        stall_cause_id = SQ.front().instr->instr_id;
-        if(SQ.front().stlb_miss) {
-          if(!SQ.front().translated){
-            stall_cause = StallCauseType::ADDR_TRANS;
-          }
-          else{
-            stall_cause = StallCauseType::REPLAY_LOAD;
-          }
-        } else {
-          stall_cause = StallCauseType::NON_REPLAY_LOAD;
-        }
-      }
-      sim_stats.core_stall_cycles[stall_type][stall_cause]++;
 
-      if(prev_stall_cause_id != stall_cause_id || prev_stall_cause != stall_cause){
-        sim_stats.core_stall_counts[stall_type][stall_cause]++;
+      //@Minchan: count rob stall instances
+      if(prev_rob_stall_cause_id != ROB.front().instr_id || prev_rob_stall_cause != rob_stall_type){
+        sim_stats.rob_stall_counts[rob_stall_type]++;
       }
-    
-      prev_stall_cause_id = stall_cause_id;
-      prev_stall_cause = stall_cause;
+
+      prev_rob_stall_cause_id = ROB.front().instr_id;
+      prev_rob_stall_cause = rob_stall_type;
 
     }
-
-
-
     
-      
   }
 
   // dispatch DISPATCH_WIDTH instructions into the ROB
@@ -508,12 +476,17 @@ long O3_CPU::dispatch_instruction()
 long O3_CPU::schedule_instruction()
 {
   champsim::bandwidth search_bw{SCHEDULER_SIZE};
+
+  if(!search_bw.has_remaining())
+    sim_stats.stall_cycles[StallType::IssueQueue]++;
+
   int progress{0};
   for (auto rob_it = std::begin(ROB); rob_it != std::end(ROB) && search_bw.has_remaining(); ++rob_it) {
     // if there aren't enough physical registers available for the next instruction, stop scheduling
     unsigned long sources_to_allocate = std::count_if(rob_it->source_registers.begin(), rob_it->source_registers.end(),
                                                       [&alloc = std::as_const(reg_allocator)](auto srcreg) { return !alloc.isAllocated(srcreg); });
     if (reg_allocator.count_free_registers() < (sources_to_allocate + rob_it->destination_registers.size())) {
+      sim_stats.stall_cycles[StallType::PHY_REG]++;
       break;
     }
     if (!rob_it->scheduled && rob_it->ready_time <= current_time) {
@@ -600,6 +573,7 @@ void O3_CPU::do_memory_scheduling(ooo_model_instr& instr)
       return lhs.virtual_address != smem || (rhs.virtual_address == smem && LSQ_ENTRY::program_order(lhs, rhs));
     });
     if (sq_it != std::end(SQ) && sq_it->virtual_address == smem) {
+      (*q_entry)->forwarded = true;
       if (sq_it->fetch_issued) { // Store already executed
         (*q_entry)->finish(instr);
         q_entry->reset();
@@ -618,7 +592,7 @@ void O3_CPU::do_memory_scheduling(ooo_model_instr& instr)
   // store
   for (auto& dmem : instr.destination_memory) {
     //@Minchan
-    SQ.emplace_back(nullptr, dmem, instr.instr_id, instr.ip, instr.asid); // add it to the store queue
+    SQ.emplace_back(&instr, dmem, instr.instr_id, instr.ip, instr.asid); // add it to the store queue
   }
 
   if constexpr (champsim::debug_print) {
@@ -691,9 +665,9 @@ bool O3_CPU::do_complete_store(const LSQ_ENTRY& sq_entry)
   data_packet.instr_id = sq_entry.instr_id;
   data_packet.ip = sq_entry.ip;
   //@Minchan: propagate ooo_model_instr from LSQ_Entry to request_type data type
-  data_packet.instr = sq_entry.instr;
+  data_packet.instr = nullptr;
   data_packet.lsq_entry = (void*)&sq_entry;
-
+  
   if constexpr (champsim::debug_print) {
     fmt::print("[SQ] {} instr_id: {} vaddr: {}\n", __func__, data_packet.instr_id, data_packet.v_address);
   }
@@ -703,13 +677,15 @@ bool O3_CPU::do_complete_store(const LSQ_ENTRY& sq_entry)
 
 bool O3_CPU::execute_load(const LSQ_ENTRY& lq_entry)
 {
+  if(lq_entry.forwarded)
+    return false;
   CacheBus::request_type data_packet;
   data_packet.v_address = lq_entry.virtual_address;
   data_packet.instr_id = lq_entry.instr_id;
   data_packet.ip = lq_entry.ip;
   //@Minchan: propagate ooo_model_instr from LSQ_Entry to request_type data type
   data_packet.instr = lq_entry.instr;
-  data_packet.lsq_entry = (void*) &lq_entry;
+  data_packet.lsq_entry = (void*)&lq_entry;
 
   if constexpr (champsim::debug_print) {
     fmt::print("[LQ] {} instr_id: {} vaddr: {}\n", __func__, data_packet.instr_id, data_packet.v_address);
@@ -797,6 +773,12 @@ long O3_CPU::retire_rob()
   auto [retire_begin, retire_end] =
       champsim::get_span_p(std::cbegin(ROB), std::cend(ROB), champsim::bandwidth{RETIRE_WIDTH}, [](const auto& x) { return x.completed; });
   assert(std::distance(retire_begin, retire_end) >= 0); // end succeeds begin
+  
+  // if(!warmup){
+  //   std::for_each(retire_begin, retire_end, [cycle = current_time.time_since_epoch() / clock_period](const auto& x) {
+  //     fmt::print("[ROB] retire_rob instr_id: {} is retired cycle: {}\n", x.instr_id, cycle);
+  //   });
+  // }
   if constexpr (champsim::debug_print) {
     std::for_each(retire_begin, retire_end, [cycle = current_time.time_since_epoch() / clock_period](const auto& x) {
       fmt::print("[ROB] retire_rob instr_id: {} is retired cycle: {}\n", x.instr_id, cycle);

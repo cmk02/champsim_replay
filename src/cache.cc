@@ -32,6 +32,8 @@
 #include "util/bits.h"
 #include "util/span.h"
 
+// #define PERFECT_FRONT
+
 CACHE::CACHE(CACHE&& other)
     : operable(other),
 
@@ -95,7 +97,7 @@ auto CACHE::operator=(CACHE&& other) -> CACHE&
 //@Minchan
 CACHE::tag_lookup_type::tag_lookup_type(const request_type& req, bool local_pref, bool skip)
     : address(req.address), v_address(req.v_address), data(req.data), ip(req.ip), instr_id(req.instr_id), pf_metadata(req.pf_metadata), cpu(req.cpu),
-      type(req.type), prefetch_from_this(local_pref), skip_fill(skip), is_translated(req.is_translated), instr_depend_on_me(req.instr_depend_on_me), instr(req.instr), lsq_entry((LSQ_ENTRY*)req.lsq_entry)
+      type(req.type), prefetch_from_this(local_pref), skip_fill(skip), is_translated(req.is_translated), instr_depend_on_me(req.instr_depend_on_me), instr(req.instr), lsq_entry((LSQ_ENTRY*)(req.lsq_entry))
 {
 }
 
@@ -276,12 +278,10 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
   //@Minchan
   if(NAME=="cpu0_STLB" && !hit){
     // fmt::print("cycles: {} instr_id: {} STLB Miss\n", current_time.time_since_epoch() / clock_period, handle_pkt.instr_id);
-    if(handle_pkt.instr)
+    if(handle_pkt.instr && !warmup){
       handle_pkt.instr->stlb_miss = true;
-    if(handle_pkt.lsq_entry)
-      handle_pkt.lsq_entry->stlb_miss = true;
+    }
   }
-
   if (hit) {
     sim_stats.hits.increment(std::pair{handle_pkt.type, handle_pkt.cpu});
 
@@ -324,6 +324,7 @@ auto CACHE::mshr_and_forward_packet(const tag_lookup_type& handle_pkt) -> std::p
   fwd_pkt.response_requested = (!handle_pkt.prefetch_from_this || !handle_pkt.skip_fill);
   //@Minchan
   fwd_pkt.instr = handle_pkt.instr;
+  fwd_pkt.lsq_entry = handle_pkt.lsq_entry;
 
   return std::pair{std::move(to_allocate), std::move(fwd_pkt)};
 }
@@ -652,14 +653,13 @@ void CACHE::finish_translation(const response_type& packet)
   auto mark_translated = [p_page = champsim::page_number{packet.data}, this](auto& entry) {
     [[maybe_unused]] auto old_address = entry.address;
     entry.address = champsim::address{champsim::splice(p_page, champsim::page_offset{entry.v_address})}; // translated address
+    if(entry.instr && !warmup){
+      entry.instr->translated = true;
+
+    }
     entry.is_translated = true;                                                                          // This entry is now translated
     //@Minchan
-    if(entry.instr){
-      // if(!warmup)
-      //   fmt::print("cycles: {} instr_id: {} translation completed\n", current_time.time_since_epoch() / clock_period, entry.instr->instr_id);
-      entry.instr->translated = true;
-      entry.lsq_entry->translated = true;
-    }
+
     if constexpr (champsim::debug_print) {
       fmt::print("[{}_TRANSLATE] finish_translation old: {} paddr: {} vaddr: {} type: {} cycle: {}\n", this->NAME, old_address, entry.address, entry.v_address,
                  access_type_names.at(champsim::to_underlying(entry.type)), this->current_time.time_since_epoch() / this->clock_period);

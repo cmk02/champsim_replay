@@ -42,8 +42,8 @@ std::vector<std::string> champsim::plain_printer::format(O3_CPU::stats_type stat
 {
   constexpr std::array types{branch_type::BRANCH_DIRECT_JUMP, branch_type::BRANCH_INDIRECT,      branch_type::BRANCH_CONDITIONAL,
                              branch_type::BRANCH_DIRECT_CALL, branch_type::BRANCH_INDIRECT_CALL, branch_type::BRANCH_RETURN};
-  constexpr std::array stall_types{StallType::ReOrderBuffer, StallType::LoadQueue, StallType::StoreQueue};
-  constexpr std::array stall_cause{StallCauseType::ADDR_TRANS, StallCauseType::REPLAY_LOAD, StallCauseType::NON_REPLAY_LOAD};
+  constexpr std::array stall_types{StallType::ReOrderBuffer, StallType::IssueQueue, StallType::PHY_REG, ::LoadQueue, StallType::StoreQueue};
+  constexpr std::array rob_stall_types{ROBStallType::ADDR_TRANS, ROBStallType::REPLAY_LOAD, ROBStallType::NON_REPLAY_LOAD};
 
   auto total_branch = std::ceil(
       std::accumulate(std::begin(types), std::end(types), 0LL, [tbt = stats.total_branch_types](auto acc, auto next) { return acc + tbt.value_or(next, 0); }));
@@ -70,24 +70,20 @@ std::vector<std::string> champsim::plain_printer::format(O3_CPU::stats_type stat
   for (auto idx : stall_types){
     lines.push_back(fmt::format("{}: {}", stall_type_names.at(champsim::to_underlying(idx)), stats.stall_cycles[idx]));
   }
+  // lines.push_back(fmt::format("Non-Stall Cycles: {}", stats.non_stall_cycles));
 
-  lines.emplace_back("\n\n");
-
-  for (auto idx : stall_types){
-    lines.push_back(fmt::format("===={} Stall Breakdown====", stall_type_names.at(champsim::to_underlying(idx))));
-    lines.emplace_back("\n== Average ==");
-    for(auto sidx : stall_cause){
-      lines.push_back(fmt::format("{}: {}", stall_cause_names.at(champsim::to_underlying(sidx)), (float)((float) stats.core_stall_cycles[idx][sidx]/ (float) stats.core_stall_counts[idx][sidx])));
-    }
-    lines.emplace_back("\n== Total ==");
-    for(auto sidx : stall_cause){
-      lines.push_back(fmt::format("{}: {}", stall_cause_names.at(champsim::to_underlying(sidx)), stats.core_stall_cycles[idx][sidx]));
-    }
-    lines.emplace_back("\n== Counts ==");
-    for(auto sidx : stall_cause){
-      lines.push_back(fmt::format("{}: {}", stall_cause_names.at(champsim::to_underlying(sidx)), stats.core_stall_counts[idx][sidx]));
-    }
-    lines.emplace_back("\n\n");
+  lines.emplace_back("\n\n====ROB Stall Breakdown====");
+  lines.emplace_back("\n== Average ==");
+  for(auto idx : rob_stall_types){
+    lines.push_back(fmt::format("{}: {}", rob_stall_type_names.at(champsim::to_underlying(idx)), (float)((float) stats.rob_stall_cycles[idx]/ (float) stats.rob_stall_counts[idx])));
+  }
+  lines.emplace_back("\n== Total ==");
+  for(auto idx : rob_stall_types){
+    lines.push_back(fmt::format("{}: {}", rob_stall_type_names.at(champsim::to_underlying(idx)), stats.rob_stall_cycles[idx]));
+  }
+  lines.emplace_back("\n== Counts ==");
+  for(auto idx : rob_stall_types){
+    lines.push_back(fmt::format("{}: {}", rob_stall_type_names.at(champsim::to_underlying(idx)), stats.rob_stall_counts[idx]));
   }
 
   return lines;

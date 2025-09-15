@@ -67,7 +67,7 @@ class channel
     uint64_t instr_id = 0;
     champsim::address ip{};
 
-    //@Minchan: ptr pointing rob/lq/sq entry
+    //@Minchan
     ooo_model_instr* instr = nullptr;
     void* lsq_entry = nullptr;
 
