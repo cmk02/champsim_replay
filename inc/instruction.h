@@ -121,6 +121,14 @@ struct ooo_model_instr : champsim::program_ordered<ooo_model_instr> {
 
   bool translated = false;
   bool stlb_miss = false;
+  bool dtlb_miss = false;
+  bool itlb_miss = false;
+  bool stlb_miss_L1D_hit = false;
+  bool stlb_miss_L2C_hit = false;
+  bool stlb_miss_LLC_hit = false;
+  bool stlb_miss_MEM_hit = false;
+
+  
   bool mem_access_completed = false;
   bool replay = false;
 

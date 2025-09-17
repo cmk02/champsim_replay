@@ -52,6 +52,75 @@ void to_json(nlohmann::json& j, const CACHE::stats_type& stats)
   statsmap.emplace("useful prefetch", stats.pf_useful);
   statsmap.emplace("useless prefetch", stats.pf_useless);
 
+
+
+  // HJ: extended TLB/cache cross counters
+  // A) dtlb miss + stlb hit -> final level
+  statsmap.emplace("dtlb miss + stlb hit -> l1i hit", stats.dtlb_miss_stlb_hit_L1I_hit);
+  statsmap.emplace("dtlb miss + stlb hit -> l1d hit", stats.dtlb_miss_stlb_hit_L1D_hit);
+  statsmap.emplace("dtlb miss + stlb hit -> l2c hit", stats.dtlb_miss_stlb_hit_L2C_hit);
+  statsmap.emplace("dtlb miss + stlb hit -> llc hit", stats.dtlb_miss_stlb_hit_LLC_hit);
+  statsmap.emplace("dtlb miss + stlb hit -> mem hit", stats.dtlb_miss_stlb_hit_MEM_hit);
+
+  // B) itlb miss + stlb hit -> final level
+  statsmap.emplace("itlb miss + stlb hit -> l1i hit", stats.itlb_miss_stlb_hit_L1I_hit);
+  statsmap.emplace("itlb miss + stlb hit -> l1d hit", stats.itlb_miss_stlb_hit_L1D_hit);
+  statsmap.emplace("itlb miss + stlb hit -> l2c hit", stats.itlb_miss_stlb_hit_L2C_hit);
+  statsmap.emplace("itlb miss + stlb hit -> llc hit", stats.itlb_miss_stlb_hit_LLC_hit);
+  statsmap.emplace("itlb miss + stlb hit -> mem hit", stats.itlb_miss_stlb_hit_MEM_hit);
+
+  // C) dtlb miss + stlb miss (resolved @ X) -> final level
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ l1d) -> l1i hit", stats.dtlb_miss_stlb_miss_L1D_hit_L1I_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ l1d) -> l1d hit", stats.dtlb_miss_stlb_miss_L1D_hit_L1D_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ l1d) -> l2c hit", stats.dtlb_miss_stlb_miss_L1D_hit_L2C_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ l1d) -> llc hit", stats.dtlb_miss_stlb_miss_L1D_hit_LLC_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ l1d) -> mem hit", stats.dtlb_miss_stlb_miss_L1D_hit_MEM_hit);
+
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ l2c) -> l1i hit", stats.dtlb_miss_stlb_miss_L2C_hit_L1I_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ l2c) -> l1d hit", stats.dtlb_miss_stlb_miss_L2C_hit_L1D_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ l2c) -> l2c hit", stats.dtlb_miss_stlb_miss_L2C_hit_L2C_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ l2c) -> llc hit", stats.dtlb_miss_stlb_miss_L2C_hit_LLC_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ l2c) -> mem hit", stats.dtlb_miss_stlb_miss_L2C_hit_MEM_hit);
+
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ llc) -> l1i hit", stats.dtlb_miss_stlb_miss_LLC_hit_L1I_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ llc) -> l1d hit", stats.dtlb_miss_stlb_miss_LLC_hit_L1D_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ llc) -> l2c hit", stats.dtlb_miss_stlb_miss_LLC_hit_L2C_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ llc) -> llc hit", stats.dtlb_miss_stlb_miss_LLC_hit_LLC_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ llc) -> mem hit", stats.dtlb_miss_stlb_miss_LLC_hit_MEM_hit);
+
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ mem) -> l1i hit", stats.dtlb_miss_stlb_miss_MEM_hit_L1I_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ mem) -> l1d hit", stats.dtlb_miss_stlb_miss_MEM_hit_L1D_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ mem) -> l2c hit", stats.dtlb_miss_stlb_miss_MEM_hit_L2C_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ mem) -> llc hit", stats.dtlb_miss_stlb_miss_MEM_hit_LLC_hit);
+  statsmap.emplace("dtlb miss + stlb miss (resolved @ mem) -> mem hit", stats.dtlb_miss_stlb_miss_MEM_hit_MEM_hit);
+
+  // D) itlb miss + stlb miss (resolved @ X) -> final level
+  statsmap.emplace("itlb miss + stlb miss (resolved @ l1d) -> l1i hit", stats.itlb_miss_stlb_miss_L1D_hit_L1I_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ l1d) -> l1d hit", stats.itlb_miss_stlb_miss_L1D_hit_L1D_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ l1d) -> l2c hit", stats.itlb_miss_stlb_miss_L1D_hit_L2C_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ l1d) -> llc hit", stats.itlb_miss_stlb_miss_L1D_hit_LLC_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ l1d) -> mem hit", stats.itlb_miss_stlb_miss_L1D_hit_MEM_hit);
+
+  statsmap.emplace("itlb miss + stlb miss (resolved @ l2c) -> l1i hit", stats.itlb_miss_stlb_miss_L2C_hit_L1I_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ l2c) -> l1d hit", stats.itlb_miss_stlb_miss_L2C_hit_L1D_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ l2c) -> l2c hit", stats.itlb_miss_stlb_miss_L2C_hit_L2C_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ l2c) -> llc hit", stats.itlb_miss_stlb_miss_L2C_hit_LLC_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ l2c) -> mem hit", stats.itlb_miss_stlb_miss_L2C_hit_MEM_hit);
+
+  statsmap.emplace("itlb miss + stlb miss (resolved @ llc) -> l1i hit", stats.itlb_miss_stlb_miss_LLC_hit_L1I_hit); 
+  statsmap.emplace("itlb miss + stlb miss (resolved @ llc) -> l1d hit", stats.itlb_miss_stlb_miss_LLC_hit_L1D_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ llc) -> l2c hit", stats.itlb_miss_stlb_miss_LLC_hit_L2C_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ llc) -> llc hit", stats.itlb_miss_stlb_miss_LLC_hit_LLC_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ llc) -> mem hit", stats.itlb_miss_stlb_miss_LLC_hit_MEM_hit);
+
+  statsmap.emplace("itlb miss + stlb miss (resolved @ mem) -> l1i hit", stats.itlb_miss_stlb_miss_MEM_hit_L1I_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ mem) -> l1d hit", stats.itlb_miss_stlb_miss_MEM_hit_L1D_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ mem) -> l2c hit", stats.itlb_miss_stlb_miss_MEM_hit_L2C_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ mem) -> llc hit", stats.itlb_miss_stlb_miss_MEM_hit_LLC_hit);
+  statsmap.emplace("itlb miss + stlb miss (resolved @ mem) -> mem hit", stats.itlb_miss_stlb_miss_MEM_hit_MEM_hit);
+  //HJ
+
+
   uint64_t total_downstream_demands = stats.mshr_return.total();
   for (std::size_t cpu = 0; cpu < NUM_CPUS; ++cpu)
     total_downstream_demands -= stats.mshr_return.value_or(std::pair{access_type::PREFETCH, cpu}, mshr_return_value_type{});

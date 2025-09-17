@@ -97,12 +97,7 @@ auto CACHE::operator=(CACHE&& other) -> CACHE&
 CACHE::tag_lookup_type::tag_lookup_type(const request_type& req, bool local_pref, bool skip)
     : address(req.address), v_address(req.v_address), data(req.data), ip(req.ip), instr_id(req.instr_id), pf_metadata(req.pf_metadata), cpu(req.cpu),
       instr(req.instr), type(req.type), prefetch_from_this(local_pref), skip_fill(skip), is_translated(req.is_translated), instr_depend_on_me(req.instr_depend_on_me)
-{
-  trans_hit_L1D = req.trans_hit_L1D;
-  trans_hit_L2C = req.trans_hit_L2C;
-  trans_hit_LLC = req.trans_hit_LLC;
-  trans_hit_MEM = req.trans_hit_MEM;
-}
+{}
 
 CACHE::mshr_type::mshr_type(const tag_lookup_type& req, champsim::chrono::clock::time_point _time_enqueued)
     : address(req.address), v_address(req.v_address), ip(req.ip), instr_id(req.instr_id), cpu(req.cpu), type(req.type),
@@ -287,16 +282,42 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
     if(handle_pkt.instr)
       handle_pkt.instr->stlb_miss = true;
   }
+  if(NAME=="cpu0_DTLB" && !hit && !warmup){
+  // fmt::print("cycles: {} instr_id: {} STLB Miss\n", current_time.time_since_epoch() / clock_period, handle_pkt.instr_id);
+  if(handle_pkt.instr)
+    handle_pkt.instr->dtlb_miss = true;
+}
+  if(NAME=="cpu0_ITLB" && !hit && !warmup){
+  // fmt::print("cycles: {} instr_id: {} STLB Miss\n", current_time.time_since_epoch() / clock_period, handle_pkt.instr_id);
+  if(handle_pkt.instr)
+    handle_pkt.instr->itlb_miss = true;
+}
+  if(NAME=="cpu0_L1D" && hit && !warmup && handle_pkt.type == access_type::TRANSLATION){
+    // fmt::print("cycles: {} instr_id: {} STLB Miss\n", current_time.time_since_epoch() / clock_period, handle_pkt.instr_id);
+    if(handle_pkt.instr)
+      handle_pkt.instr->stlb_miss_L1D_hit = true;
+  }
+  if(NAME=="cpu0_L2C" && hit && !warmup && handle_pkt.type == access_type::TRANSLATION){
+  // fmt::print("cycles: {} instr_id: {} STLB Miss\n", current_time.time_since_epoch() / clock_period, handle_pkt.instr_id);
+  if(handle_pkt.instr)
+    handle_pkt.instr->stlb_miss_L2C_hit = true;
+}
+  if(NAME=="LLC" && hit && !warmup && handle_pkt.type == access_type::TRANSLATION){
+  // fmt::print("cycles: {} instr_id: {} STLB Miss\n", current_time.time_since_epoch() / clock_period, handle_pkt.instr_id);
+  if(handle_pkt.instr)
+    handle_pkt.instr->stlb_miss_LLC_hit = true;
+    
+}
+  if(NAME=="LLC" && !hit && !warmup && handle_pkt.type == access_type::TRANSLATION){
+  // fmt::print("cycles: {} instr_id: {} STLB Miss\n", current_time.time_since_epoch() / clock_period, handle_pkt.instr_id);
+  if(handle_pkt.instr)
+    handle_pkt.instr->stlb_miss_MEM_hit = true;
+    
+}
 
   if (hit) {
     sim_stats.hits.increment(std::pair{handle_pkt.type, handle_pkt.cpu});
-    //HJ
-    if (handle_pkt.type == access_type::TRANSLATION) {
-      if (NAME == "cpu0_L1D")        handle_pkt.trans_hit_L1D = true;
-      else if (NAME == "cpu0_L2C")   handle_pkt.trans_hit_L2C = true;
-      else if (NAME == "LLC")        handle_pkt.trans_hit_LLC = true;
-    }
-    //HJ
+
     response_type response{handle_pkt.address, handle_pkt.v_address, way->data, metadata_thru, handle_pkt.instr_depend_on_me};
     for (auto* ret : handle_pkt.to_return) {
       ret->push_back(response);
@@ -336,12 +357,7 @@ auto CACHE::mshr_and_forward_packet(const tag_lookup_type& handle_pkt) -> std::p
   fwd_pkt.response_requested = (!handle_pkt.prefetch_from_this || !handle_pkt.skip_fill);
   //@Minchan
   fwd_pkt.instr = handle_pkt.instr;
-    //HJ
-  fwd_pkt.trans_hit_L1D = handle_pkt.trans_hit_L1D;
-  fwd_pkt.trans_hit_L2C = handle_pkt.trans_hit_L2C;
-  fwd_pkt.trans_hit_LLC = handle_pkt.trans_hit_LLC;
-  fwd_pkt.trans_hit_MEM = handle_pkt.trans_hit_MEM;
-  //HJ
+
 
   return std::pair{std::move(to_allocate), std::move(fwd_pkt)};
 }
@@ -388,11 +404,7 @@ bool CACHE::handle_miss(const tag_lookup_type& handle_pkt)
     if (!success) {
       return false;
     }
-    //HJ
-    if (handle_pkt.type == access_type::TRANSLATION && success) {
-      if (NAME == "LLC")        handle_pkt.trans_hit_MEM = true;
-    }
-    //HJ
+
     // Allocate an MSHR
     if (mshr_pkt.second.response_requested) {
       MSHR.emplace_back(std::move(mshr_pkt.first));
@@ -436,13 +448,178 @@ auto CACHE::initiate_tag_check(champsim::channel* ul)
 
     // If this request has any prior translation hit provenance (at L1D/L2C/LLC/MEM),
     // we’ll treat a *miss* here as zero-latency (i.e., don't add HIT_LATENCY).
-    const bool any_trans_hit =
-        retval.trans_hit_L1D || retval.trans_hit_L2C || retval.trans_hit_LLC || retval.trans_hit_MEM;
 
-    const bool oracle = (!hit) && (NAME != "cpu0_L1D") && (NAME != "cpu0_L1I") &&  (retval.instr && retval.instr->stlb_miss);
+
+    const bool oracle = (!hit) && (NAME != "cpu0_L1D") && (NAME != "cpu0_L1I") &&  (retval.instr && (retval.instr->stlb_miss || retval.instr->dtlb_miss || retval.instr->itlb_miss));
     
-        // Only zero on miss; hits keep the normal HIT_LATENCY.
-    const bool zero_on_miss = (!hit) && any_trans_hit;
+  if (retval.instr && retval.instr->dtlb_miss && !retval.instr->stlb_miss) {
+    if (NAME == "cpu0_L1I" && hit) {
+      ++sim_stats.dtlb_miss_stlb_hit_L1I_hit;
+    } else if (NAME == "cpu0_L1D" && hit) {
+      ++sim_stats.dtlb_miss_stlb_hit_L1D_hit;
+    } else if (NAME == "cpu0_L2C" && hit) {
+      ++sim_stats.dtlb_miss_stlb_hit_L2C_hit;
+    } else if (NAME == "LLC") {
+      if (hit) {
+        ++sim_stats.dtlb_miss_stlb_hit_LLC_hit;
+      } else if(!hit) {
+        ++sim_stats.dtlb_miss_stlb_hit_MEM_hit;
+      }
+    }
+  }
+
+   if (retval.instr && retval.instr->dtlb_miss && retval.instr->stlb_miss && retval.instr->stlb_miss_L1D_hit) {
+    if (NAME == "cpu0_L1I" && hit) {
+      ++sim_stats.dtlb_miss_stlb_miss_L1D_hit_L1I_hit;
+    } else if (NAME == "cpu0_L1D" && hit) {
+      ++sim_stats.dtlb_miss_stlb_miss_L1D_hit_L1D_hit;
+    } else if (NAME == "cpu0_L2C" && hit) {
+      ++sim_stats.dtlb_miss_stlb_miss_L1D_hit_L2C_hit;
+    } else if (NAME == "LLC") {
+      if (hit) {
+        ++sim_stats.dtlb_miss_stlb_miss_L1D_hit_LLC_hit;
+      } else if(!hit) {
+        ++sim_stats.dtlb_miss_stlb_miss_L1D_hit_MEM_hit;
+      }
+    }
+   }
+   // DTLB miss + STLB miss (translation resolved at L2C) -> where did the final access hit?
+if (retval.instr && retval.instr->dtlb_miss && retval.instr->stlb_miss && retval.instr->stlb_miss_L2C_hit) {
+  if (NAME == "cpu0_L1I" && hit) {
+    ++sim_stats.dtlb_miss_stlb_miss_L2C_hit_L1I_hit;
+  } else if (NAME == "cpu0_L1D" && hit) {
+    ++sim_stats.dtlb_miss_stlb_miss_L2C_hit_L1D_hit;
+  } else if (NAME == "cpu0_L2C" && hit) {
+    ++sim_stats.dtlb_miss_stlb_miss_L2C_hit_L2C_hit;
+  } else if (NAME == "LLC") {
+    if (hit) {
+      ++sim_stats.dtlb_miss_stlb_miss_L2C_hit_LLC_hit;
+    } else {
+      // MEM is identified at LLC with !hit
+      ++sim_stats.dtlb_miss_stlb_miss_L2C_hit_MEM_hit;
+    }
+  }
+}
+
+// DTLB miss + STLB miss (translation resolved at LLC) -> where did the final access hit?
+if (retval.instr && retval.instr->dtlb_miss && retval.instr->stlb_miss && retval.instr->stlb_miss_LLC_hit) {
+  if (NAME == "cpu0_L1I" && hit) {
+    ++sim_stats.dtlb_miss_stlb_miss_LLC_hit_L1I_hit;
+  } else if (NAME == "cpu0_L1D" && hit) {
+    ++sim_stats.dtlb_miss_stlb_miss_LLC_hit_L1D_hit;
+  } else if (NAME == "cpu0_L2C" && hit) {
+    ++sim_stats.dtlb_miss_stlb_miss_LLC_hit_L2C_hit;
+  } else if (NAME == "LLC") {
+    if (hit) {
+      ++sim_stats.dtlb_miss_stlb_miss_LLC_hit_LLC_hit;
+    } else {
+      // MEM is identified at LLC with !hit
+      ++sim_stats.dtlb_miss_stlb_miss_LLC_hit_MEM_hit;
+    }
+  }
+}
+
+// DTLB miss + STLB miss (translation resolved at MEM) -> where did the final access hit?
+if (retval.instr && retval.instr->dtlb_miss && retval.instr->stlb_miss && retval.instr->stlb_miss_MEM_hit) {
+  if (NAME == "cpu0_L1I" && hit) {
+    ++sim_stats.dtlb_miss_stlb_miss_MEM_hit_L1I_hit;
+  } else if (NAME == "cpu0_L1D" && hit) {
+    ++sim_stats.dtlb_miss_stlb_miss_MEM_hit_L1D_hit;
+  } else if (NAME == "cpu0_L2C" && hit) {
+    ++sim_stats.dtlb_miss_stlb_miss_MEM_hit_L2C_hit;
+  } else if (NAME == "LLC") {
+    if (hit) {
+      ++sim_stats.dtlb_miss_stlb_miss_MEM_hit_LLC_hit;
+    } else {
+      // MEM is identified at LLC with !hit
+      ++sim_stats.dtlb_miss_stlb_miss_MEM_hit_MEM_hit;
+    }
+  }
+}
+// ITLB miss + STLB hit -> where did the final access hit?
+if (retval.instr && retval.instr->itlb_miss && !retval.instr->stlb_miss) {
+  if (NAME == "cpu0_L1I" && hit) {
+    ++sim_stats.itlb_miss_stlb_hit_L1I_hit;
+  } else if (NAME == "cpu0_L1D" && hit) {
+    ++sim_stats.itlb_miss_stlb_hit_L1D_hit;
+  } else if (NAME == "cpu0_L2C" && hit) {
+    ++sim_stats.itlb_miss_stlb_hit_L2C_hit;
+  } else if (NAME == "LLC") {
+    if (hit) {
+      ++sim_stats.itlb_miss_stlb_hit_LLC_hit;
+    } else {
+      ++sim_stats.itlb_miss_stlb_hit_MEM_hit;
+    }
+  }
+}
+
+// ITLB miss + STLB miss (translation resolved at L1D) -> where did the final access hit?
+if (retval.instr && retval.instr->itlb_miss && retval.instr->stlb_miss && retval.instr->stlb_miss_L1D_hit) {
+  if (NAME == "cpu0_L1I" && hit) {
+    ++sim_stats.itlb_miss_stlb_miss_L1D_hit_L1I_hit;
+  } else if (NAME == "cpu0_L1D" && hit) {
+    ++sim_stats.itlb_miss_stlb_miss_L1D_hit_L1D_hit;
+  } else if (NAME == "cpu0_L2C" && hit) {
+    ++sim_stats.itlb_miss_stlb_miss_L1D_hit_L2C_hit;
+  } else if (NAME == "LLC") {
+    if (hit) {
+      ++sim_stats.itlb_miss_stlb_miss_L1D_hit_LLC_hit;
+    } else {
+      ++sim_stats.itlb_miss_stlb_miss_L1D_hit_MEM_hit;
+    }
+  }
+}
+
+// ITLB miss + STLB miss (translation resolved at L2C) -> where did the final access hit?
+if (retval.instr && retval.instr->itlb_miss && retval.instr->stlb_miss && retval.instr->stlb_miss_L2C_hit) {
+  if (NAME == "cpu0_L1I" && hit) {
+    ++sim_stats.itlb_miss_stlb_miss_L2C_hit_L1I_hit;
+  } else if (NAME == "cpu0_L1D" && hit) {
+    ++sim_stats.itlb_miss_stlb_miss_L2C_hit_L1D_hit;
+  } else if (NAME == "cpu0_L2C" && hit) {
+    ++sim_stats.itlb_miss_stlb_miss_L2C_hit_L2C_hit;
+  } else if (NAME == "LLC") {
+    if (hit) {
+      ++sim_stats.itlb_miss_stlb_miss_L2C_hit_LLC_hit;
+    } else {
+      ++sim_stats.itlb_miss_stlb_miss_L2C_hit_MEM_hit;
+    }
+  }
+}
+
+// ITLB miss + STLB miss (translation resolved at LLC) -> where did the final access hit?
+if (retval.instr && retval.instr->itlb_miss && retval.instr->stlb_miss && retval.instr->stlb_miss_LLC_hit) {
+  if (NAME == "cpu0_L1I" && hit) {
+    ++sim_stats.itlb_miss_stlb_miss_LLC_hit_L1I_hit;
+  } else if (NAME == "cpu0_L1D" && hit) {
+    ++sim_stats.itlb_miss_stlb_miss_LLC_hit_L1D_hit;
+  } else if (NAME == "cpu0_L2C" && hit) {
+    ++sim_stats.itlb_miss_stlb_miss_LLC_hit_L2C_hit;
+  } else if (NAME == "LLC") {
+    if (hit) {
+      ++sim_stats.itlb_miss_stlb_miss_LLC_hit_LLC_hit;
+    } else {
+      ++sim_stats.itlb_miss_stlb_miss_LLC_hit_MEM_hit;
+    }
+  }
+}
+
+// ITLB miss + STLB miss (translation resolved at MEM) -> where did the final access hit?
+if (retval.instr && retval.instr->itlb_miss && retval.instr->stlb_miss && retval.instr->stlb_miss_MEM_hit) {
+  if (NAME == "cpu0_L1I" && hit) {
+    ++sim_stats.itlb_miss_stlb_miss_MEM_hit_L1I_hit;
+  } else if (NAME == "cpu0_L1D" && hit) {
+    ++sim_stats.itlb_miss_stlb_miss_MEM_hit_L1D_hit;
+  } else if (NAME == "cpu0_L2C" && hit) {
+    ++sim_stats.itlb_miss_stlb_miss_MEM_hit_L2C_hit;
+  } else if (NAME == "LLC") {
+    if (hit) {
+      ++sim_stats.itlb_miss_stlb_miss_MEM_hit_LLC_hit;
+    } else {
+      ++sim_stats.itlb_miss_stlb_miss_MEM_hit_MEM_hit;
+    }
+  }
+}
 
     // fmt::print("L1D {}, L2C {}, LLC {}, MEM {}\n",retval.trans_hit_L1D,retval.trans_hit_L2C, retval.trans_hit_LLC, retval.trans_hit_MEM);
     
@@ -460,10 +637,7 @@ auto CACHE::initiate_tag_check(champsim::channel* ul)
       (void)ul;
     }
 
-    if constexpr (champsim::debug_print) {
-      fmt::print("[TAG] initiate_tag_check id:{} addr:{} hit:{} any_trans_hit:{} zero_on_miss:{}\n",
-                 retval.instr_id, retval.address, hit, any_trans_hit, zero_on_miss);
-    }
+
     return retval;
   };
 }
@@ -757,12 +931,7 @@ void CACHE::issue_translation(tag_lookup_type& q_entry) const
     fwd_pkt.ip = q_entry.ip;
     //@Minchan
     fwd_pkt.instr = q_entry.instr;
-    //HJ
-    fwd_pkt.trans_hit_L1D = q_entry.trans_hit_L1D;
-    fwd_pkt.trans_hit_L2C = q_entry.trans_hit_L2C;
-    fwd_pkt.trans_hit_LLC = q_entry.trans_hit_LLC;
-    fwd_pkt.trans_hit_MEM = q_entry.trans_hit_MEM;
-    //HJ
+
     fwd_pkt.instr_depend_on_me = q_entry.instr_depend_on_me;
     fwd_pkt.is_translated = true;
 
@@ -957,6 +1126,71 @@ void CACHE::end_phase(unsigned finished_cpu)
   roi_stats.misses = sim_stats.misses;
   roi_stats.mshr_merge = sim_stats.mshr_merge;
   roi_stats.mshr_return = sim_stats.mshr_return;
+  // HJ: copy extended TLB/cache cross counters into ROI
+  // A) DTLB miss + STLB hit -> final level
+  roi_stats.dtlb_miss_stlb_hit_L1I_hit = sim_stats.dtlb_miss_stlb_hit_L1I_hit;
+  roi_stats.dtlb_miss_stlb_hit_L1D_hit = sim_stats.dtlb_miss_stlb_hit_L1D_hit;
+  roi_stats.dtlb_miss_stlb_hit_L2C_hit = sim_stats.dtlb_miss_stlb_hit_L2C_hit;
+  roi_stats.dtlb_miss_stlb_hit_LLC_hit = sim_stats.dtlb_miss_stlb_hit_LLC_hit;
+  roi_stats.dtlb_miss_stlb_hit_MEM_hit = sim_stats.dtlb_miss_stlb_hit_MEM_hit;
+
+  // B) ITLB miss + STLB hit -> final level
+  roi_stats.itlb_miss_stlb_hit_L1I_hit = sim_stats.itlb_miss_stlb_hit_L1I_hit;
+  roi_stats.itlb_miss_stlb_hit_L1D_hit = sim_stats.itlb_miss_stlb_hit_L1D_hit;
+  roi_stats.itlb_miss_stlb_hit_L2C_hit = sim_stats.itlb_miss_stlb_hit_L2C_hit;
+  roi_stats.itlb_miss_stlb_hit_LLC_hit = sim_stats.itlb_miss_stlb_hit_LLC_hit;
+  roi_stats.itlb_miss_stlb_hit_MEM_hit = sim_stats.itlb_miss_stlb_hit_MEM_hit;
+
+  // C) DTLB miss + STLB miss (resolved @ L1D/L2C/LLC/MEM) -> final level
+  roi_stats.dtlb_miss_stlb_miss_L1D_hit_L1I_hit = sim_stats.dtlb_miss_stlb_miss_L1D_hit_L1I_hit;
+  roi_stats.dtlb_miss_stlb_miss_L1D_hit_L1D_hit = sim_stats.dtlb_miss_stlb_miss_L1D_hit_L1D_hit;
+  roi_stats.dtlb_miss_stlb_miss_L1D_hit_L2C_hit = sim_stats.dtlb_miss_stlb_miss_L1D_hit_L2C_hit;
+  roi_stats.dtlb_miss_stlb_miss_L1D_hit_LLC_hit = sim_stats.dtlb_miss_stlb_miss_L1D_hit_LLC_hit;
+  roi_stats.dtlb_miss_stlb_miss_L1D_hit_MEM_hit = sim_stats.dtlb_miss_stlb_miss_L1D_hit_MEM_hit;
+
+  roi_stats.dtlb_miss_stlb_miss_L2C_hit_L1I_hit = sim_stats.dtlb_miss_stlb_miss_L2C_hit_L1I_hit;
+  roi_stats.dtlb_miss_stlb_miss_L2C_hit_L1D_hit = sim_stats.dtlb_miss_stlb_miss_L2C_hit_L1D_hit;
+  roi_stats.dtlb_miss_stlb_miss_L2C_hit_L2C_hit = sim_stats.dtlb_miss_stlb_miss_L2C_hit_L2C_hit;
+  roi_stats.dtlb_miss_stlb_miss_L2C_hit_LLC_hit = sim_stats.dtlb_miss_stlb_miss_L2C_hit_LLC_hit;
+  roi_stats.dtlb_miss_stlb_miss_L2C_hit_MEM_hit = sim_stats.dtlb_miss_stlb_miss_L2C_hit_MEM_hit;
+
+  roi_stats.dtlb_miss_stlb_miss_LLC_hit_L1I_hit = sim_stats.dtlb_miss_stlb_miss_LLC_hit_L1I_hit;
+  roi_stats.dtlb_miss_stlb_miss_LLC_hit_L1D_hit = sim_stats.dtlb_miss_stlb_miss_LLC_hit_L1D_hit;
+  roi_stats.dtlb_miss_stlb_miss_LLC_hit_L2C_hit = sim_stats.dtlb_miss_stlb_miss_LLC_hit_L2C_hit;
+  roi_stats.dtlb_miss_stlb_miss_LLC_hit_LLC_hit = sim_stats.dtlb_miss_stlb_miss_LLC_hit_LLC_hit;
+  roi_stats.dtlb_miss_stlb_miss_LLC_hit_MEM_hit = sim_stats.dtlb_miss_stlb_miss_LLC_hit_MEM_hit;
+
+  roi_stats.dtlb_miss_stlb_miss_MEM_hit_L1I_hit = sim_stats.dtlb_miss_stlb_miss_MEM_hit_L1I_hit;
+  roi_stats.dtlb_miss_stlb_miss_MEM_hit_L1D_hit = sim_stats.dtlb_miss_stlb_miss_MEM_hit_L1D_hit;
+  roi_stats.dtlb_miss_stlb_miss_MEM_hit_L2C_hit = sim_stats.dtlb_miss_stlb_miss_MEM_hit_L2C_hit;
+  roi_stats.dtlb_miss_stlb_miss_MEM_hit_LLC_hit = sim_stats.dtlb_miss_stlb_miss_MEM_hit_LLC_hit;
+  roi_stats.dtlb_miss_stlb_miss_MEM_hit_MEM_hit = sim_stats.dtlb_miss_stlb_miss_MEM_hit_MEM_hit;
+
+  // D) ITLB miss + STLB miss (resolved @ L1D/L2C/LLC/MEM) -> final level
+  roi_stats.itlb_miss_stlb_miss_L1D_hit_L1I_hit = sim_stats.itlb_miss_stlb_miss_L1D_hit_L1I_hit;
+  roi_stats.itlb_miss_stlb_miss_L1D_hit_L1D_hit = sim_stats.itlb_miss_stlb_miss_L1D_hit_L1D_hit;
+  roi_stats.itlb_miss_stlb_miss_L1D_hit_L2C_hit = sim_stats.itlb_miss_stlb_miss_L1D_hit_L2C_hit;
+  roi_stats.itlb_miss_stlb_miss_L1D_hit_LLC_hit = sim_stats.itlb_miss_stlb_miss_L1D_hit_LLC_hit;
+  roi_stats.itlb_miss_stlb_miss_L1D_hit_MEM_hit = sim_stats.itlb_miss_stlb_miss_L1D_hit_MEM_hit;
+
+  roi_stats.itlb_miss_stlb_miss_L2C_hit_L1I_hit = sim_stats.itlb_miss_stlb_miss_L2C_hit_L1I_hit;
+  roi_stats.itlb_miss_stlb_miss_L2C_hit_L1D_hit = sim_stats.itlb_miss_stlb_miss_L2C_hit_L1D_hit;
+  roi_stats.itlb_miss_stlb_miss_L2C_hit_L2C_hit = sim_stats.itlb_miss_stlb_miss_L2C_hit_L2C_hit;
+  roi_stats.itlb_miss_stlb_miss_L2C_hit_LLC_hit = sim_stats.itlb_miss_stlb_miss_L2C_hit_LLC_hit;
+  roi_stats.itlb_miss_stlb_miss_L2C_hit_MEM_hit = sim_stats.itlb_miss_stlb_miss_L2C_hit_MEM_hit;
+
+  roi_stats.itlb_miss_stlb_miss_LLC_hit_L1I_hit = sim_stats.itlb_miss_stlb_miss_LLC_hit_L1I_hit;
+  roi_stats.itlb_miss_stlb_miss_LLC_hit_L1D_hit = sim_stats.itlb_miss_stlb_miss_LLC_hit_L1D_hit;
+  roi_stats.itlb_miss_stlb_miss_LLC_hit_L2C_hit = sim_stats.itlb_miss_stlb_miss_LLC_hit_L2C_hit;
+  roi_stats.itlb_miss_stlb_miss_LLC_hit_LLC_hit = sim_stats.itlb_miss_stlb_miss_LLC_hit_LLC_hit;
+  roi_stats.itlb_miss_stlb_miss_LLC_hit_MEM_hit = sim_stats.itlb_miss_stlb_miss_LLC_hit_MEM_hit;
+
+  roi_stats.itlb_miss_stlb_miss_MEM_hit_L1I_hit = sim_stats.itlb_miss_stlb_miss_MEM_hit_L1I_hit;
+  roi_stats.itlb_miss_stlb_miss_MEM_hit_L1D_hit = sim_stats.itlb_miss_stlb_miss_MEM_hit_L1D_hit;
+  roi_stats.itlb_miss_stlb_miss_MEM_hit_L2C_hit = sim_stats.itlb_miss_stlb_miss_MEM_hit_L2C_hit;
+  roi_stats.itlb_miss_stlb_miss_MEM_hit_LLC_hit = sim_stats.itlb_miss_stlb_miss_MEM_hit_LLC_hit;
+  roi_stats.itlb_miss_stlb_miss_MEM_hit_MEM_hit = sim_stats.itlb_miss_stlb_miss_MEM_hit_MEM_hit;
+  //HJ
 
   roi_stats.pf_requested = sim_stats.pf_requested;
   roi_stats.pf_issued = sim_stats.pf_issued;

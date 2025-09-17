@@ -1,0 +1,5 @@
+[2025-09-17 04:45:44] START suite=qualcomm_srv trace=srv489_ap
+CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/itp_asplos25_AE/traces/qualcomm_srv/srv489_ap.champsimtrace.xz
+terminate called after throwing an instance of 'std::bad_array_new_length'
+  what():  std::bad_array_new_length
+./run_champsim_all.sh: line 55: 4110943 Aborted                 (core dumped) "${cmd[@]}"

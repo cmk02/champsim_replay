@@ -1,0 +1,2 @@
+[2025-09-17 15:31:58] START suite=gap trace=605.mcf_s-472B
+CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/gap/605.mcf_s-472B.champsimtrace.xz

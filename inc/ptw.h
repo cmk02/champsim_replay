@@ -55,6 +55,8 @@ class PageTableWalker : public champsim::operable
     champsim::address v_address{};
     champsim::waitable<champsim::address> data{};
 
+    ooo_model_instr* instr = nullptr;
+
     std::vector<uint64_t> instr_depend_on_me{};
     std::vector<std::deque<response_type>*> to_return{};
 

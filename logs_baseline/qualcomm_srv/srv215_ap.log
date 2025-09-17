@@ -1,0 +1,3 @@
+[2025-09-17 12:38:04] START suite=qualcomm_srv trace=srv215_ap
+CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/itp_asplos25_AE/traces/qualcomm_srv/srv215_ap.champsimtrace.xz
+./run_champsim_all.sh: line 55: 1331639 Segmentation fault      (core dumped) "${cmd[@]}"

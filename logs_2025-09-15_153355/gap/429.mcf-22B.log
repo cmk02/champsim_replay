@@ -1,5 +1,0 @@
-[2025-09-15 19:55:16] START suite=gap trace=429.mcf-22B
-CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/gap/429.mcf-22B.champsimtrace.xz
-terminate called after throwing an instance of 'std::bad_alloc'
-  what():  std::bad_alloc
-./run_champsim_all.sh: line 44: 3381182 Aborted                 (core dumped) "$CHAMPSIM_BIN" -w "$WARMUP_ITERS" -i "$MEASURE_ITERS" "$trace_dir/${name}.champsimtrace.xz"

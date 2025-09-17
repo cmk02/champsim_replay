@@ -70,12 +70,7 @@ class CACHE : public champsim::operable
     ooo_model_instr* instr;
 
     access_type type;
-    //HJ
-    mutable bool trans_hit_L1D = false;
-    mutable bool trans_hit_L2C = false;
-    mutable bool trans_hit_LLC = false;
-    mutable bool trans_hit_MEM = false;
-    //HJ
+
     bool prefetch_from_this;
     bool skip_fill;
     bool is_translated;

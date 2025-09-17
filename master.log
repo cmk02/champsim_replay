@@ -342,3 +342,9 @@ nohup: ignoring input
  -> queued [qualcomm_srv] srv551_ap.champsimtrace.xz
  -> queued [qualcomm_srv] srv210_ap.champsimtrace.xz
  -> queued [qualcomm_srv] srv548_ap.champsimtrace.xz
+<<<<<<< Updated upstream
+=======
+ -> queued [qualcomm_srv] srv144_ap.champsimtrace.xz
+ -> queued [qualcomm_srv] srv640_ap.champsimtrace.xz
+ -> queued [qualcomm_srv] srv767_ap.champsimtrace.xz
+>>>>>>> Stashed changes

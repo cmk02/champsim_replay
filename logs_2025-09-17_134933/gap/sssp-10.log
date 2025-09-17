@@ -1,0 +1,2 @@
+[2025-09-17 15:42:11] START suite=gap trace=sssp-10
+CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/gap/sssp-10.trace.gz

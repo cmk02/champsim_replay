@@ -1,0 +1,4 @@
+[2025-09-16 19:37:47] START suite=gap trace=605.mcf_s-1644B
+CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/gap/605.mcf_s-1644B.champsimtrace.xz
+champsim: /home/ho/champsim_replay/inc/extent.h:49: constexpr champsim::dynamic_extent::dynamic_extent(champsim::data::bits, champsim::data::bits): Assertion `upper >= lower' failed.
+./run_champsim_all.sh: line 55: 2680787 Aborted                 (core dumped) "${cmd[@]}"

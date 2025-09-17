@@ -1,0 +1,2 @@
+[2025-09-17 13:49:34] START suite=gap trace=pr-14
+CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/gap/pr-14.trace.gz

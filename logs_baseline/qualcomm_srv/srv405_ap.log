@@ -1,0 +1,5 @@
+[2025-09-17 07:03:30] START suite=qualcomm_srv trace=srv405_ap
+CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/itp_asplos25_AE/traces/qualcomm_srv/srv405_ap.champsimtrace.xz
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+./run_champsim_all.sh: line 55: 367354 Aborted                 (core dumped) "${cmd[@]}"

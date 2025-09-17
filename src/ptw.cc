@@ -68,6 +68,7 @@ auto PageTableWalker::handle_read(const request_type& handle_pkt, channel_type* 
   mshr_type fwd_mshr{handle_pkt, walk_init.level};
   fwd_mshr.address = champsim::address{champsim::splice(champsim::page_number{walk_init.ptw_addr}, champsim::page_offset{walk_offset})};
   fwd_mshr.v_address = handle_pkt.address;
+  fwd_mshr.instr = handle_pkt.instr;
   if (handle_pkt.response_requested) {
     fwd_mshr.to_return = {&ul->returned};
   }
@@ -110,6 +111,7 @@ auto PageTableWalker::step_translation(const mshr_type& source) -> std::optional
   packet.asid[1] = source.asid[1];
   packet.is_translated = true;
   packet.type = access_type::TRANSLATION;
+  packet.instr = source.instr;
 
   bool success = lower_level->add_rq(packet);
   if (success) {

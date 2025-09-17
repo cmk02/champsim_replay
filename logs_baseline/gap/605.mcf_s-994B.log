@@ -1,0 +1,5 @@
+[2025-09-16 18:04:50] START suite=gap trace=605.mcf_s-994B
+CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/gap/605.mcf_s-994B.champsimtrace.xz
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+./run_champsim_all.sh: line 55: 2414181 Aborted                 (core dumped) "${cmd[@]}"

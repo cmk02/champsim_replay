@@ -128,7 +128,7 @@ std::vector<std::string> champsim::plain_printer::format(CACHE::stats_type stats
       total_mshr_merge += stats.mshr_merge.value_or(std::pair{type, cpu}, mshr_merge_value_type{});
       total_mshr_return += stats.mshr_return.value_or(std::pair{type, cpu}, mshr_merge_value_type{});
     }
-
+    
     fmt::format_string<std::string_view, std::string_view, int, int, int> hitmiss_fmtstr{
         "cpu{}->{} {:<12s} ACCESS: {:10d} HIT: {:10d} MISS: {:10d} MSHR_MERGE: {:10d}"};
     lines.push_back(fmt::format(hitmiss_fmtstr, cpu, stats.name, "TOTAL", total_hits + total_misses, total_hits, total_misses, total_mshr_merge));
@@ -224,7 +224,119 @@ std::vector<std::string> champsim::plain_printer::format(champsim::phase_stats& 
     lines.emplace_back("");
     std::move(std::begin(sublines), std::end(sublines), std::back_inserter(lines));
   }
+//HJ: print TLB→Cache/MEM breakdown ONCE at the very end (ROI totals across all caches)
+{
+  auto S = [&](auto f) -> uint64_t {
+    uint64_t s = 0;
+    for (const auto& c : stats.roi_cache_stats) s += f(c);
+    return s;
+  };
 
+  // small helpers for pretty tables
+  auto sep = [&](){
+    lines.emplace_back("---------------------------------------------------------------");
+  };
+  auto table_header = [&](std::string title){
+    lines.emplace_back("");
+    lines.emplace_back(title);
+    lines.emplace_back(fmt::format("  {:<28} {:>12} {:>12} {:>12} {:>12} {:>12}",
+                                   "(case)", "L1I", "L1D", "L2C", "LLC", "MEM"));
+  };
+  auto row = [&](std::string label, uint64_t l1i, uint64_t l1d, uint64_t l2c, uint64_t llc, uint64_t mem){
+    lines.push_back(fmt::format("  {:<28} {:>12} {:>12} {:>12} {:>12} {:>12}",
+                                label, l1i, l1d, l2c, llc, mem));
+  };
+
+  lines.emplace_back("");
+  lines.emplace_back("==== TLB→Cache/MEM Breakdown (ROI totals across all caches) ====");
+
+  // -----------------------
+  // DTLB
+  // -----------------------
+  table_header("DTLB");
+  // STLB hit -> final level
+  row("STLB hit → final level",
+      S([](const auto& c){return c.dtlb_miss_stlb_hit_L1I_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_hit_L1D_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_hit_L2C_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_hit_LLC_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_hit_MEM_hit;})
+  );
+  sep();
+  // STLB miss resolved @ each level -> final level
+  row("STLB miss resolved @ L1D",
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_L1D_hit_L1I_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_L1D_hit_L1D_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_L1D_hit_L2C_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_L1D_hit_LLC_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_L1D_hit_MEM_hit;})
+  );
+  row("STLB miss resolved @ L2C",
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_L2C_hit_L1I_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_L2C_hit_L1D_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_L2C_hit_L2C_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_L2C_hit_LLC_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_L2C_hit_MEM_hit;})
+  );
+  row("STLB miss resolved @ LLC",
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_LLC_hit_L1I_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_LLC_hit_L1D_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_LLC_hit_L2C_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_LLC_hit_LLC_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_LLC_hit_MEM_hit;})
+  );
+  row("STLB miss resolved @ MEM",
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_MEM_hit_L1I_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_MEM_hit_L1D_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_MEM_hit_L2C_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_MEM_hit_LLC_hit;}),
+      S([](const auto& c){return c.dtlb_miss_stlb_miss_MEM_hit_MEM_hit;})
+  );
+
+  // -----------------------
+  // ITLB
+  // -----------------------
+  table_header("ITLB");
+  // STLB hit -> final level
+  row("STLB hit → final level",
+      S([](const auto& c){return c.itlb_miss_stlb_hit_L1I_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_hit_L1D_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_hit_L2C_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_hit_LLC_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_hit_MEM_hit;})
+  );
+  sep();
+  // STLB miss resolved @ each level -> final level
+  row("STLB miss resolved @ L1D",
+      S([](const auto& c){return c.itlb_miss_stlb_miss_L1D_hit_L1I_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_L1D_hit_L1D_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_L1D_hit_L2C_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_L1D_hit_LLC_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_L1D_hit_MEM_hit;})
+  );
+  row("STLB miss resolved @ L2C",
+      S([](const auto& c){return c.itlb_miss_stlb_miss_L2C_hit_L1I_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_L2C_hit_L1D_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_L2C_hit_L2C_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_L2C_hit_LLC_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_L2C_hit_MEM_hit;})
+  );
+  row("STLB miss resolved @ LLC",
+      S([](const auto& c){return c.itlb_miss_stlb_miss_LLC_hit_L1I_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_LLC_hit_L1D_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_LLC_hit_L2C_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_LLC_hit_LLC_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_LLC_hit_MEM_hit;})
+  );
+  row("STLB miss resolved @ MEM",
+      S([](const auto& c){return c.itlb_miss_stlb_miss_MEM_hit_L1I_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_MEM_hit_L1D_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_MEM_hit_L2C_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_MEM_hit_LLC_hit;}),
+      S([](const auto& c){return c.itlb_miss_stlb_miss_MEM_hit_MEM_hit;})
+  );
+}
+//HJ
   return lines;
 }
 

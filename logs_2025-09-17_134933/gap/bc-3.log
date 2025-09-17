@@ -1,0 +1,2 @@
+[2025-09-17 15:10:14] START suite=gap trace=bc-3
+CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/gap/bc-3.trace.gz

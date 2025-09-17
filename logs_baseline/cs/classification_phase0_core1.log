@@ -1,0 +1,4 @@
+[2025-09-16 20:09:36] START suite=cs trace=classification_phase0_core1
+CMD: ./bin/champsim -c -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/cs/classification_phase0_core1.trace.xz
+champsim: /home/ho/champsim_replay/inc/extent.h:49: constexpr champsim::dynamic_extent::dynamic_extent(champsim::data::bits, champsim::data::bits): Assertion `upper >= lower' failed.
+./run_champsim_all.sh: line 55: 2697412 Aborted                 (core dumped) "${cmd[@]}"

@@ -1,3 +1,0 @@
-[2025-09-15 17:03:19] START suite=spec trace=403.gcc-17B
-CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/spec2k17/403.gcc-17B.champsimtrace.xz
-./run_champsim_all.sh: line 44: 3012328 Segmentation fault      (core dumped) "$CHAMPSIM_BIN" -w "$WARMUP_ITERS" -i "$MEASURE_ITERS" "$trace_dir/${name}.champsimtrace.xz"

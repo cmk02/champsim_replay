@@ -1,5 +1,0 @@
-[2025-09-15 18:36:21] START suite=spec trace=607.cactuBSSN_s-2421B
-CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/spec2k17/607.cactuBSSN_s-2421B.champsimtrace.xz
-terminate called after throwing an instance of 'std::bad_array_new_length'
-  what():  std::bad_array_new_length
-./run_champsim_all.sh: line 44: 3280796 Aborted                 (core dumped) "$CHAMPSIM_BIN" -w "$WARMUP_ITERS" -i "$MEASURE_ITERS" "$trace_dir/${name}.champsimtrace.xz"
