@@ -136,7 +136,7 @@ struct ooo_model_instr : champsim::program_ordered<ooo_model_instr> {
   int num_reg_dependent = 0;
 
   //@Minchan
-  bool bypass_candidate;
+  bool bypass_candidate = false;
   //
 
   std::vector<PHYSICAL_REGISTER_ID> destination_registers = {}; // output registers
