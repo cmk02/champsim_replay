@@ -67,8 +67,10 @@ class CACHE : public champsim::operable
     uint32_t pf_metadata;
     uint32_t cpu;
 
-    ooo_model_instr* instr;
-
+    // @Minchan
+    ooo_model_instr* instr = nullptr;
+    uint8_t access_offset = 0;
+    //
     access_type type;
 
     bool prefetch_from_this;

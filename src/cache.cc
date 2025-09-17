@@ -330,6 +330,22 @@ bool CACHE::try_hit(const tag_lookup_type& handle_pkt)
       ++sim_stats.pf_useful;
       way->prefetch = false;
     }
+
+    //@Minchan
+    //@FIX ME: we need to handle eviction on L1 TLB, 
+    // since stale metadata in L2 TLB will incur misprediction
+    if(NAME=="cpu0_ITLB" || NAME=="cpu0_DTLB" || NAME=="cpu0_STLB"){
+      uint64_t bit_mask = 1ULL << (handle_pkt.access_offset);
+      
+      //First Access
+      if(!(way->access_bit_mask & bit_mask) && handle_pkt.instr){
+        handle_pkt.instr->bypass_candidate = true;
+      }
+
+      way->access_bit_mask |= bit_mask;
+    }
+    //
+
   }
 
   return hit;
@@ -450,7 +466,7 @@ auto CACHE::initiate_tag_check(champsim::channel* ul)
     // we’ll treat a *miss* here as zero-latency (i.e., don't add HIT_LATENCY).
 
 
-    const bool oracle = (!hit) && (NAME != "cpu0_L1D") && (NAME != "cpu0_L1I") &&  (retval.instr && (retval.instr->stlb_miss || retval.instr->dtlb_miss || retval.instr->itlb_miss));
+    const bool oracle = (!hit) && (NAME != "cpu0_L1D") && (NAME != "cpu0_L1I") &&  (retval.instr && (retval.instr->stlb_miss || retval.instr->dtlb_miss || retval.instr->itlb_miss || retval.instr->bypass_candidate));
     
   if (retval.instr && retval.instr->dtlb_miss && !retval.instr->stlb_miss) {
     if (NAME == "cpu0_L1I" && hit) {
@@ -931,6 +947,8 @@ void CACHE::issue_translation(tag_lookup_type& q_entry) const
     fwd_pkt.ip = q_entry.ip;
     //@Minchan
     fwd_pkt.instr = q_entry.instr;
+    fwd_pkt.access_offset = (uint8_t)((q_entry.v_address.to<uint64_t>() % PAGE_SIZE)/BLOCK_SIZE);
+    //
 
     fwd_pkt.instr_depend_on_me = q_entry.instr_depend_on_me;
     fwd_pkt.is_translated = true;

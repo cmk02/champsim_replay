@@ -61,6 +61,10 @@ class channel
     //HJ
     bool response_requested = true;
 
+    //@Minchan
+    uint8_t access_offset;
+    //
+
     uint8_t asid[2] = {std::numeric_limits<uint8_t>::max(), std::numeric_limits<uint8_t>::max()};
     access_type type{access_type::LOAD};
 

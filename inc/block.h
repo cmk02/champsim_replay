@@ -31,6 +31,10 @@ struct cache_block {
   champsim::address data{};
 
   uint32_t pf_metadata = 0;
+
+  //@Minchan
+  uint64_t access_bit_mask;
+  //
 };
 } // namespace champsim
 
