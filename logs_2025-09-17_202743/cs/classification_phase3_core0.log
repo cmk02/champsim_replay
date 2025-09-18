@@ -1,0 +1,5 @@
+[2025-09-17 22:55:28] START suite=cs trace=classification_phase3_core0
+CMD: ./bin/champsim -c -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/cs/classification_phase3_core0.trace.xz
+terminate called after throwing an instance of 'std::bad_array_new_length'
+  what():  std::bad_array_new_length
+./run_champsim_all.sh: line 55: 3029285 Aborted                 (core dumped) "${cmd[@]}"

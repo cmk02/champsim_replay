@@ -1,0 +1,3 @@
+[2025-09-17 21:24:23] START suite=gap trace=429.mcf-217B
+CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/gap/429.mcf-217B.champsimtrace.xz
+./run_champsim_all.sh: line 55: 2858198 Segmentation fault      (core dumped) "${cmd[@]}"

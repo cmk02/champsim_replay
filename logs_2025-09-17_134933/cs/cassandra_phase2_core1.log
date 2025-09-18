@@ -1,0 +1,2 @@
+[2025-09-17 19:49:29] START suite=cs trace=cassandra_phase2_core1
+CMD: ./bin/champsim -c -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/cs/cassandra_phase2_core1.trace.xz

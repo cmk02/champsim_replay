@@ -1,0 +1,3 @@
+[2025-09-17 23:54:50] START suite=cs trace=nutch_phase3_core0
+CMD: ./bin/champsim -c -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/cs/nutch_phase3_core0.trace.xz
+./run_champsim_all.sh: line 55: 3162104 Segmentation fault      (core dumped) "${cmd[@]}"

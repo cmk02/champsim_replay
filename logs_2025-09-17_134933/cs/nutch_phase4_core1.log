@@ -1,0 +1,2 @@
+[2025-09-17 19:51:50] START suite=cs trace=nutch_phase4_core1
+CMD: ./bin/champsim -c -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/cs/nutch_phase4_core1.trace.xz

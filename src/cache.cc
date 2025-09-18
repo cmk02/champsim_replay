@@ -450,7 +450,7 @@ auto CACHE::initiate_tag_check(champsim::channel* ul)
     // we’ll treat a *miss* here as zero-latency (i.e., don't add HIT_LATENCY).
 
 
-    const bool oracle = (!hit) && (NAME != "cpu0_L1D") && (NAME != "cpu0_L1I") &&  (retval.instr && (retval.instr->stlb_miss || retval.instr->dtlb_miss || retval.instr->itlb_miss));
+    const bool oracle = (!hit) && (NAME != "cpu0_L1D") && (NAME != "cpu0_L1I") &&  (retval.instr && (retval.instr->stlb_miss || retval.instr->dtlb_miss || retval.instr->itlb_miss) && retval.instr_id);
     
   if (retval.instr && retval.instr->dtlb_miss && !retval.instr->stlb_miss) {
     if (NAME == "cpu0_L1I" && hit) {

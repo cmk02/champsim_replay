@@ -1,0 +1,5 @@
+[2025-09-17 17:44:17] START suite=cs trace=nutch_phase3_core2
+CMD: ./bin/champsim -c -w 20000000 -i 100000000 /home/ho/prefetch_aware_insertion_ptr/traces/cs/nutch_phase3_core2.trace.xz
+terminate called after throwing an instance of 'std::bad_alloc'
+  what():  std::bad_alloc
+./run_champsim_all.sh: line 55: 2301405 Aborted                 (core dumped) "${cmd[@]}"

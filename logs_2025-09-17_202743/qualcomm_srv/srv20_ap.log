@@ -1,0 +1,4 @@
+[2025-09-18 04:01:43] START suite=qualcomm_srv trace=srv20_ap
+CMD: ./bin/champsim -w 20000000 -i 100000000 /home/ho/itp_asplos25_AE/traces/qualcomm_srv/srv20_ap.champsimtrace.xz
+double free or corruption (out)
+./run_champsim_all.sh: line 55: 3841002 Aborted                 (core dumped) "${cmd[@]}"
